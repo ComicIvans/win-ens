@@ -9,7 +9,6 @@ $PolicyInfo = [PSCustomObject]@{
     Name        = '05_UAC_UIAccessDesktop'
     Description = 'Control de cuentas de usuario: permitir que las aplicaciones UIAccess pidan confirmación de elevación sin usar el escritorio seguro'
     Status      = 'Pending'
-    Error       = ''
 }
 
 $GroupInfo.Policies += $PolicyInfo
@@ -25,10 +24,7 @@ function Test-Policy {
     $currentValue = (Get-ItemProperty -Path $regPath -Name $propertyName -ErrorAction SilentlyContinue).$propertyName
     
     if ($null -eq $currentValue) {
-        $errMsg = "[$($PolicyInfo.Name)] No se encontró '$propertyName' en el registro."
-        $PolicyInfo.Error = $errMsg
-        Save-GlobalInfo
-        Show-Error $errMsg
+        Exit-WithError "[$($PolicyInfo.Name)] No se encontró '$propertyName' en el registro."
     }
     else {
         Show-Info -Message "[$($PolicyInfo.Name)] Política comprobada." -LogOnly

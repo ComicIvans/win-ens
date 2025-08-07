@@ -8,7 +8,6 @@ $PolicyInfo = [PSCustomObject]@{
     Name        = '02_UAC_UserPromptBehavior'
     Description = 'Control de cuentas de usuario: comportamiento de la petición de elevación para los usuarios estándar'
     Status      = 'Pending'
-    Error       = ''
 }
 
 $GroupInfo.Policies += $PolicyInfo
@@ -24,10 +23,7 @@ function Test-Policy {
     $currentValue = (Get-ItemProperty -Path $regPath -Name $propertyName -ErrorAction SilentlyContinue).$propertyName
 
     if ($null -eq $currentValue) {
-        $errMsg = "[$($PolicyInfo.Name)] No se encontró '$propertyName' en el registro."
-        $PolicyInfo.Error = $errMsg
-        Save-GlobalInfo
-        Show-Error $errMsg
+        Exit-WithError "[$($PolicyInfo.Name)] No se encontró '$propertyName' en el registro."
     }
     else {
         Show-Info -Message "[$($PolicyInfo.Name)] Política comprobada." -LogOnly

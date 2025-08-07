@@ -6,22 +6,14 @@
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 [Console]::InputEncoding = [Text.Encoding]::UTF8
 
+# Import utility functions
+Import-Module "$PSScriptRoot/Utils.ps1"
 # Import PrintsAndLogs, where print functions are defined
 Import-Module "$PSScriptRoot/PrintsAndLogs.ps1"
 # Import configuration functions
 Import-Module "$PSScriptRoot/Config.ps1"
-# Import utility functions
-Import-Module "$PSScriptRoot/Utils.ps1"
-
-
-# Global object with general execution metadata
-$Global:Info = [PSCustomObject]@{
-    Timestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
-    MachineId = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Cryptography" -Name "MachineGuid"
-    Action    = ''
-    Error     = ''
-    Profile   = $null       # Here we will store the reference to the Info object of the profile
-}
+# Import profile executor
+Import-Module "$PSScriptRoot/ProfileExecutor.ps1"
 
 # Privilege check
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -30,6 +22,15 @@ if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adminis
     $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
     Start-Process PowerShell.exe -Verb RunAs -ArgumentList $arguments
     exit
+}
+
+# Global object with general execution metadata
+$Global:Info = [PSCustomObject]@{
+    Timestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
+    MachineId = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Cryptography" -Name "MachineGuid"
+    Action    = ''
+    Error     = ''
+    Profile   = $null       # Here we will store the reference to the Info object of the profile
 }
 
 Clear-Host
@@ -124,13 +125,10 @@ Show-Header3Lines "SCRIPT PARA LA ADECUACIÓN AL ENS"
 Write-Host ""
 
 # Initialize configuration
-if (-not (Initialize-Configuration)) {
-    Exit-WithError "No se ha podido validar la configuración, saliendo..."
-}
+Initialize-Configuration
 Write-Host ""
 
-# ----- Functions to show the menu and execute actions -----
-
+# Functions to show the menu
 function Show-ActionMenu {
     Write-Host ""
     Write-Host "Acciones disponibles:" -ForegroundColor Yellow
@@ -141,30 +139,6 @@ function Show-ActionMenu {
     Write-Host "5) Salir" -ForegroundColor DarkCyan
     Write-Host ""
     return Read-Host -Prompt "Introduce la opción"
-}
-
-function Invoke-TestProfile {
-    $Global:Info.Action = "Test"
-    Save-GlobalInfo
-    Select-ExecuteProfile
-}
-
-function Invoke-SetProfile {
-    $Global:Info.Action = "Set"
-    Save-GlobalInfo
-    Select-ExecuteProfile
-}
-
-function Invoke-RestoreProfile {
-    $Global:Info.Action = "Restore"
-    Save-GlobalInfo
-    Restore-Backup
-}
-
-function Invoke-ShowConfig {
-    $Global:Info.Action = "Config"
-    Save-GlobalInfo
-    Show-Config
 }
 
 # Function to select category and information rating, then execute the profile
@@ -203,21 +177,17 @@ function Select-ExecuteProfile {
         Exit-WithError "Categoría del sistema no soportada."
     }
     
-    $profileSuffix = "$category`_$info"
-    $profileScript = Join-Path $PSScriptRoot "$category`_$info\Main_$profileSuffix.ps1"
-    if (-not (Test-Path $profileScript)) {
-        Exit-WithError "No se pudo determinar el perfil correspondiente a la categoría y calificación seleccionadas."
-    }
+    $profileName = "$category`_$info"
     
     if (($Global:Info.Action -eq "Set")) {
-        $backupFolderName = "$($Global:Info.Timestamp)`_$profileSuffix"
+        $backupFolderName = "$($Global:Info.Timestamp)`_$profileName"
         $Global:BackupFolderPath = Join-Path $backupsFolder $backupFolderName
         New-Item -Path $Global:BackupFolderPath -ItemType Directory | Out-Null
     }
     
-    & $profileScript
+    Invoke-Profile -ProfileName $profileName
+
     Write-Host ""
-    
     switch ($Global:Info.Action) {
         "Set" { Exit-WithSuccess "Adecuación del perfil completada." }
         "Test" { Exit-WithSuccess "Comprobación del perfil completada." }
@@ -249,17 +219,13 @@ function Restore-Backup {
     if ($parts.Count -ge 4) {
         $category = $parts[2]
         $info = $parts[3]
-        $profileSuffix = "$category`_$info"
-        $profileScript = Join-Path $PSScriptRoot "$profileSuffix\Main_$profileSuffix.ps1"
-        
-        if (-not (Test-Path $profileScript)) {
-            Exit-WithError "No se pudo determinar el perfil correspondiente a dicha copia de seguridad. Verifica el nombre de la carpeta."
-        }
+        $profileName = "$category`_$info"
+
         $Global:BackupFolderPath = $selectedBackup.FullName
         Show-Info -Message "Restaurando copia de seguridad: $($Global:BackupFolderPath)" -LogOnly
-        
-        & $profileScript
-        
+
+        Invoke-Profile -ProfileName $profileName
+
         Write-Host ""
         Exit-WithSuccess "Restauración completada."
     }
@@ -273,10 +239,26 @@ do {
     $invalid = $false
     $choice = Show-ActionMenu
     switch ($choice) {
-        "1" { Invoke-TestProfile }
-        "2" { Invoke-SetProfile }
-        "3" { Invoke-RestoreProfile }
-        "4" { Invoke-ShowConfig }
+        "1" {
+            $Global:Info.Action = "Test"
+            Save-GlobalInfo
+            Select-ExecuteProfile 
+        }
+        "2" {
+            $Global:Info.Action = "Set"
+            Save-GlobalInfo
+            Select-ExecuteProfile 
+        }
+        "3" {
+            $Global:Info.Action = "Restore"
+            Save-GlobalInfo
+            Restore-Backup 
+        }
+        "4" {
+            $Global:Info.Action = "Config"
+            Save-GlobalInfo
+            Show-Config 
+        }
         "5" { Exit-WithPause }
         default {
             Write-Host "Acción no válida. Intenta de nuevo."

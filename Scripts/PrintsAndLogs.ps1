@@ -63,7 +63,7 @@ function Show-Info {
     if ($Global:LogFilePath) {
         $timestamp = (Get-Date).ToString("HH:mm:ss")
         $logLine = "[$timestamp] [INFO] $Message"
-        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8
+        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8 -Force
     }
 }
 
@@ -81,7 +81,7 @@ function Show-Warning {
     if ($Global:LogFilePath) {
         $timestamp = (Get-Date).ToString("HH:mm:ss")
         $logLine = "[$timestamp] [WARNING] $Message"
-        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8
+        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8 -Force
     }
 }
 
@@ -99,7 +99,7 @@ function Show-Error {
     if ($Global:LogFilePath) {
         $timestamp = (Get-Date).ToString("HH:mm:ss")
         $logLine = "[$timestamp] [ERROR] $Message"
-        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8
+        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8 -Force
     }
 }
 
@@ -117,7 +117,7 @@ function Show-Success {
     if ($Global:LogFilePath) {
         $timestamp = (Get-Date).ToString("HH:mm:ss")
         $logLine = "[$timestamp] [OK] $Message"
-        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8
+        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8 -Force
     }
 }
 

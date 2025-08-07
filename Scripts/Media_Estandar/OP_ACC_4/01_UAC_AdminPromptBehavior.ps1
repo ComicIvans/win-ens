@@ -8,7 +8,6 @@ $PolicyInfo = [PSCustomObject]@{
     Name        = '01_UAC_AdminPromptBehavior'
     Description = 'Control de cuentas de usuario: comportamiento de la petición de elevación para los administradores en Modo de aprobación de administrador'
     Status      = 'Pending'
-    Error       = ''
 }
 
 $GroupInfo.Policies += $PolicyInfo
@@ -22,10 +21,7 @@ function Test-Policy {
     $currentValue = (Get-ItemProperty -Path $regPath -Name "ConsentPromptBehaviorAdmin" -ErrorAction SilentlyContinue).ConsentPromptBehaviorAdmin
     
     if ($null -eq $currentValue) {
-        $errMsg = "[$($PolicyInfo.Name)] No se encontró 'ConsentPromptBehaviorAdmin' en el registro."
-        $PolicyInfo.Error = $errMsg
-        Save-GlobalInfo
-        Show-Error $errMsg
+        Exit-WithError "[$($PolicyInfo.Name)] No se encontró 'ConsentPromptBehaviorAdmin' en el registro."
     }
     else {
         Show-Info -Message "[$($PolicyInfo.Name)] Política comprobada." -LogOnly

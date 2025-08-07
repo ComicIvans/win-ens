@@ -47,7 +47,7 @@ function Save-GlobalInfo {
     }
   }
   catch {
-    Exit-WithError -Message "Error al guardar la información de ejecución en $Global:InfoFilePath, se detendrá la ejecución para evitar realizar cambios que no puedan ser fácilmente restaurados. $_" -Code -1
+    Exit-WithError -Message "Error al guardar la información de ejecución en '$Global:InfoFilePath', se detendrá la ejecución para evitar realizar cambios que no puedan ser fácilmente restaurados. $_" -Code -1
   }
 }
 
@@ -71,5 +71,71 @@ function Save-Backup {
     Show-Error $errMsg
     Save-GlobalInfo
     return $false
+  }
+}
+
+# Function to validate a $ProfileInfo object
+function Test-ProfileInfo {
+  param(
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject]$ProfileInfo,
+    [Parameter(Mandatory = $true)]
+    [string]$ProfileName
+  )
+
+  if (-not $ProfileInfo) {
+    Exit-WithError "No se encontró un objeto de información para '$ProfileName'."
+  }
+  elseif (-not $ProfileInfo.Name) {
+    Exit-WithError "El objeto de información del perfil '$ProfileName' no contiene el campo 'Name'."
+  }
+  elseif (-not $ProfileInfo.Status) {
+    Exit-WithError "El objeto de información del perfil '$ProfileName' no contiene el campo 'Status'."
+  }
+  elseif ($null -eq $ProfileInfo.Groups) {
+    Exit-WithError "El objeto de información del perfil '$ProfileName' no contiene el campo 'Groups'."
+  }
+}
+
+# Function to validate a $GroupInfo object
+function Test-GroupInfo {
+  param(
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject]$GroupInfo,
+    [Parameter(Mandatory = $true)]
+    [string]$GroupName
+  )
+
+  if (-not $GroupInfo) {
+    Exit-WithError "No se encontró un objeto de información para el grupo '$GroupName'."
+  }
+  elseif (-not $GroupInfo.Name) {
+    Exit-WithError "El objeto de información del grupo '$GroupName' no contiene el campo 'Name'."
+  }
+  elseif (-not $GroupInfo.Status) {
+    Exit-WithError "El objeto de información del grupo '$GroupName' no contiene el campo 'Status'."
+  }
+  elseif ($null -eq $GroupInfo.Policies) {
+    Exit-WithError "El objeto de información del grupo '$GroupName' no contiene el campo 'Policies'."
+  }
+}
+
+# Function to validate a $PolicyInfo object
+function Test-PolicyInfo {
+  param(
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject]$PolicyInfo,
+    [Parameter(Mandatory = $true)]
+    [string]$PolicyName
+  )
+
+  if (-not $PolicyInfo) {
+    Exit-WithError "No se encontró un objeto de información para la política '$PolicyName'."
+  }
+  elseif (-not $PolicyInfo.Name) {
+    Exit-WithError "El objeto de información de la política '$PolicyName' no contiene el campo 'Name'."
+  }
+  elseif (-not $PolicyInfo.Status) {
+    Exit-WithError "El objeto de información de la política '$PolicyName' no contiene el campo 'Status'."
   }
 }

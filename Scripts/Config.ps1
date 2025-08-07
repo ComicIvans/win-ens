@@ -23,8 +23,7 @@ function Initialize-Configuration {
       $Global:Config = ConvertTo-HashtableRecursive -Object $Global:Config -Ordered
     }
     catch {
-      Show-Error "No se ha podido cargar el archivo de configuración. $_"
-      return $false
+      Exit-WithError "No se ha podido cargar el archivo de configuración. $_"
     }
   }
   else {
@@ -44,8 +43,7 @@ function Initialize-Configuration {
       $Global:Config = $localConfig
     }
     catch {
-      Show-Error "No se ha podido crear el archivo de configuración $ConfigFile. $_"
-      return $false
+      Exit-WithError "No se ha podido crear el archivo de configuración $ConfigFile. $_"
     }
   }
   else {
@@ -55,7 +53,6 @@ function Initialize-Configuration {
     }
     Show-Success "Archivo de configuración $ConfigFile cargado."
   }
-  return $true
 }
 
 # Function to create a config object with the current structure of profiles, groups, and policies and optionally print issues found
