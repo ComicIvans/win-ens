@@ -85,11 +85,7 @@ function Invoke-Group {
   }
   elseif ($Global:Info.Action -eq "Set") {
     # Initialize backup file with empty JSON object
-    if (-not (Save-Backup)) {
-      $GroupInfo.Status = 'Completed'
-      Save-GlobalInfo
-      return
-    }
+    Save-Backup
   }
   elseif ($Global:Info.Action -eq "Restore") {
     # Load the backup file if it exists

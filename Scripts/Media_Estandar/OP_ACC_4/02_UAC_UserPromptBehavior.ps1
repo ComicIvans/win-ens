@@ -42,11 +42,7 @@ function Set-Policy {
     # Take a backup
     Show-Info -Message "[$($PolicyInfo.Name)] Creando copia de respaldo..." -LogOnly
     $backup[$PolicyInfo.Name] = (Get-ItemProperty -Path $regPath -Name 'ConsentPromptBehaviorUser' -ErrorAction SilentlyContinue).ConsentPromptBehaviorUser
-    if (-not (Save-Backup)) {
-        $PolicyInfo.Status = 'Completed'
-        Save-GlobalInfo
-        return
-    }
+    Save-Backup
 
     # Apply the policy
     Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -LogOnly

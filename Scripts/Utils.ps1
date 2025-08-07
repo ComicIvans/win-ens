@@ -43,7 +43,7 @@ function Save-GlobalInfo {
   try {
     if ($Global:InfoFilePath -and $Global:Info) {
       $jsonData = $Global:Info | ConvertTo-Json -Depth 10
-      Set-Content -Path $Global:InfoFilePath -Value $jsonData -Encoding UTF8
+      Set-Content -Path $Global:InfoFilePath -Value $jsonData -Encoding UTF8 -Force
     }
   }
   catch {
@@ -56,21 +56,11 @@ function Save-Backup {
   # Convert the backup to a JSON string and save it to the file
   try {
     $jsonString = $backup | ConvertTo-Json -Depth 10
-    $jsonString | Out-File -FilePath $backupFilePath -Encoding UTF8
+    $jsonString | Out-File -FilePath $backupFilePath -Encoding UTF8 -Force
     Show-Info -Message "Archivo de respaldo $($GroupInfo.Name).json guardado." -LogOnly
-    return $true
   }
   catch {
-    $errMsg = "No se ha podido guardar el archivo de respaldo $($GroupInfo.Name).json. $_"
-    if ($PolicyInfo) {
-      $PolicyInfo.Error = $errMsg
-    }
-    else {
-      $GroupInfo.Error = $errMsg
-    }
-    Show-Error $errMsg
-    Save-GlobalInfo
-    return $false
+    Exit-WithError "No se ha podido guardar el archivo de respaldo $($GroupInfo.Name).json. $_"
   }
 }
 

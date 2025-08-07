@@ -72,7 +72,7 @@ function Get-LocalConfig {
     $expectedProfileMain = "Main_{0}.ps1" -f $profDir.Name
     $profileMainPath = Join-Path $profDir.FullName $expectedProfileMain
     if (-not (Test-Path $profileMainPath) -and $printAndLog) {
-      Show-Error "La carpeta de perfil '$($profDir.Name)' no tiene el archivo '$expectedProfileMain', por lo que no será posible ejecutar dicho perfil."
+      Show-Warning "La carpeta de perfil '$($profDir.Name)' no tiene el archivo '$expectedProfileMain', por lo que no será posible ejecutar dicho perfil."
     }
 
     # If the Scripts key for the profile does not exist, we create it
@@ -87,7 +87,7 @@ function Get-LocalConfig {
       $expectedGroupMain = "Main_{0}.ps1" -f $groupDir.Name
       $groupMainPath = Join-Path $groupDir.FullName $expectedGroupMain
       if (-not (Test-Path $groupMainPath) -and $printAndLog) {
-        Show-Error "La carpeta de grupo '$($groupDir.Name)' no tiene el archivo '$expectedGroupMain', por lo que no será posible ejecutar dicho grupo dentro del perfil '$($profDir.Name)'."
+        Show-Warning "La carpeta de grupo '$($groupDir.Name)' no tiene el archivo '$expectedGroupMain', por lo que no será posible ejecutar dicho grupo dentro del perfil '$($profDir.Name)'."
       }
 
       # If the group key does not exist in the profile, we create it
@@ -392,10 +392,6 @@ function Save-Config {
     Show-Info -Message "Archivo de configuración $ConfigFile guardado." -LogOnly
   }
   catch {
-    $errMsg = "No se ha podido guardar el archivo de configuración. $_"
-    $Global:Info.Error = $errMsg
-    Save-GlobalInfo
-    Show-Error $errMsg
-    Write-Host ""
+    Exit-WithError "No se ha podido guardar el archivo de configuración. $_"
   }
 }
