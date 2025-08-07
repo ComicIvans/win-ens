@@ -1,24 +1,29 @@
 ﻿###############################################################################
 # Main.ps1
-# SCRIPT PARA LA ADECUACIÓN AL ENS
+# Main entry point for the script
 ###############################################################################
 
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 [Console]::InputEncoding = [Text.Encoding]::UTF8
 
-# Importamos PrintsAndLogs, donde se definen las funciones de impresión y la función para guardar el GlobalInfo
+# Import PrintsAndLogs, where print functions are defined
 Import-Module "$PSScriptRoot/PrintsAndLogs.ps1"
+# Import configuration functions
+Import-Module "$PSScriptRoot/Config.ps1"
+# Import utility functions
+Import-Module "$PSScriptRoot/Utils.ps1"
 
-# Objeto global con metadatos generales de la ejecución
-$Global:GlobalInfo = [PSCustomObject]@{
+
+# Global object with general execution metadata
+$Global:Info = [PSCustomObject]@{
     Timestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
     MachineId = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Cryptography" -Name "MachineGuid"
     Action    = ''
     Error     = ''
-    Profile   = $null       # Aquí almacenaremos la referencia al objeto Info del perfil
+    Profile   = $null       # Here we will store the reference to the Info object of the profile
 }
 
-# Comprobación de privilegios
+# Privilege check
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "Se requieren privilegios de administrador. Elevando..."
@@ -29,114 +34,232 @@ if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adminis
 
 Clear-Host
 
-# Función para mostrar el mensaje, pausar y salir
+# Function to display message, pause and exit
 function Exit-WithPause {
+    param(
+        [Parameter()]
+        [int] $Code = 0
+    )
+
     Write-Host "`nPresiona Enter para salir..."
     Read-Host | Out-Null
-    exit
+    exit $Code
 }
 
-# Función para mostrar un mensaje de error y salir
+# Function to display an error message and exit
 function Exit-WithError {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$ErrorMessage
+        [string]$Message,
+        [Parameter()]
+        [int]$Code = 1
     )
-    $Global:GlobalInfo.Error = $ErrorMessage
-    Save-GlobalInfo
-    Show-Error $ErrorMessage
-    Exit-WithPause
+    $Global:Info.Error = $Message
+    # -1 means that Global:Info can't be saved
+    if (-not $Code -eq -1) {
+        Save-GlobalInfo
+    }
+    Show-Error $Message
+    Exit-WithPause $Code
 }
 
-# Función para mostrar un mensaje de éxito y salir
+# Function to display a success message and exit
 function Exit-WithSuccess {
     param(
         [Parameter(Mandatory = $true)]
         [string]$SuccessMessage
     )
     Show-Success $SuccessMessage
-    Exit-WithPause
+    Exit-WithPause 0
 }
 
-# Directorios de logs
+# Log directories
 $logsRoot = Join-Path $PSScriptRoot "..\Logs"
-$logsFolder = Join-Path $logsRoot $Global:GlobalInfo.MachineId
+$logsFolder = Join-Path $logsRoot $Global:Info.MachineId
 
-if (-not (Test-Path $logsRoot)) { New-Item -Path $logsRoot   -ItemType Directory | Out-Null }
-if (-not (Test-Path $logsFolder)) { New-Item -Path $logsFolder -ItemType Directory | Out-Null }
+try {
+    if (-not (Test-Path $logsRoot)) { New-Item -Path $logsRoot   -ItemType Directory | Out-Null }
+    if (-not (Test-Path $logsFolder)) { New-Item -Path $logsFolder -ItemType Directory | Out-Null }
+}
+catch {
+    Exit-WithError -Message "No se ha podido crear el directorio de logs: $logsRoot. $_" -Code -1
+}
 
-$logFileName = "$($Global:GlobalInfo.Timestamp).log"
+# Create log file name and store its path in a global variable
+$logFileName = "$($Global:Info.Timestamp).log"
 $Global:LogFilePath = Join-Path $logsFolder $logFileName
 
-$resultFileName = "$($Global:GlobalInfo.Timestamp).json"
-$Global:ResultFilePath = Join-Path $logsFolder $resultFileName
+try {
+    New-Item -Path $Global:LogFilePath -ItemType File -Force | Out-Null
+}
+catch {
+    Exit-WithError -Message "No se ha podido crear el archivo de log: $Global:LogFilePath. $_" -Code -1
+}
 
-# Directorios de backups
+# Create info file name and store its path in a global variable
+$infoFileName = "$($Global:Info.Timestamp).json"
+$Global:InfoFilePath = Join-Path $logsFolder $infoFileName
+
+try {
+    New-Item -Path $Global:InfoFilePath -ItemType File -Force | Out-Null
+}
+catch {
+    Exit-WithError -Message "No se ha podido crear el archivo de información: $Global:InfoFilePath. $_" -Code -1
+}
+
+# Backup directories
 $backupsRoot = Join-Path $PSScriptRoot "..\Backups"
-$backupsFolder = Join-Path $backupsRoot $Global:GlobalInfo.MachineId
+$backupsFolder = Join-Path $backupsRoot $Global:Info.MachineId
 
-if (-not (Test-Path $backupsRoot)) { New-Item -Path $backupsRoot   -ItemType Directory | Out-Null }
-if (-not (Test-Path $backupsFolder)) { New-Item -Path $backupsFolder -ItemType Directory | Out-Null }
+try {
+    if (-not (Test-Path $backupsRoot)) { New-Item -Path $backupsRoot   -ItemType Directory | Out-Null }
+    if (-not (Test-Path $backupsFolder)) { New-Item -Path $backupsFolder -ItemType Directory | Out-Null }
+}
+catch {
+    Exit-WithError -Message "No se ha podido crear el directorio de copias de seguridad: $backupsRoot. $_"
+}
 
 Write-Host ""
 Show-Header3Lines "SCRIPT PARA LA ADECUACIÓN AL ENS"
 Write-Host ""
 
-Write-Host "1) Comprobar el estado (Test)" -ForegroundColor DarkCyan
-Write-Host "2) Aplicar un perfil (Set)" -ForegroundColor DarkCyan
-Write-Host "3) Restaurar copia (Restore)" -ForegroundColor DarkCyan
+# Initialize configuration
+if (-not (Initialize-Configuration)) {
+    Exit-WithError "No se ha podido validar la configuración, saliendo..."
+}
 Write-Host ""
-$actionChoice = Read-Host -Prompt "Introduce la opción"
 
-switch ($actionChoice) {
-    "1" { $Global:GlobalInfo.Action = "Test" }
-    "2" { $Global:GlobalInfo.Action = "Set" }
-    "3" { $Global:GlobalInfo.Action = "Restore" }
-    default {
-        Exit-WithError "Acción no válida."
+# ----- Functions to show the menu and execute actions -----
+
+function Show-ActionMenu {
+    Write-Host ""
+    Write-Host "Acciones disponibles:" -ForegroundColor Yellow
+    Write-Host "1) Comprobar el estado" -ForegroundColor DarkCyan
+    Write-Host "2) Aplicar un perfil" -ForegroundColor DarkCyan
+    Write-Host "3) Restaurar copia" -ForegroundColor DarkCyan
+    Write-Host "4) Ver configuración" -ForegroundColor DarkCyan
+    Write-Host "5) Salir" -ForegroundColor DarkCyan
+    Write-Host ""
+    return Read-Host -Prompt "Introduce la opción"
+}
+
+function Invoke-TestProfile {
+    $Global:Info.Action = "Test"
+    Save-GlobalInfo
+    Select-ExecuteProfile
+}
+
+function Invoke-SetProfile {
+    $Global:Info.Action = "Set"
+    Save-GlobalInfo
+    Select-ExecuteProfile
+}
+
+function Invoke-RestoreProfile {
+    $Global:Info.Action = "Restore"
+    Save-GlobalInfo
+    Restore-Backup
+}
+
+function Invoke-ShowConfig {
+    $Global:Info.Action = "Config"
+    Save-GlobalInfo
+    Show-Config
+}
+
+# Function to select category and information rating, then execute the profile
+function Select-ExecuteProfile {
+    Write-Host "`nSelecciona categoría del sistema:"
+    Write-Host "1) Media"
+    Write-Host "2) Alta"
+    $catChoice = Read-Host
+    switch ($catChoice) {
+        "1" { $category = "Media" }
+        "2" { $category = "Alta" }
+        default { Exit-WithError "Categoría del sistema no válida." }
+    }
+    
+    if ($category -eq "Media") {
+        Write-Host "`nSelecciona la calificación de la información:"
+        Write-Host "1) Estándar"
+        Write-Host "2) Uso Oficial"
+        $infoChoice = Read-Host
+        switch ($infoChoice) {
+            "1" { $info = "Estandar" }
+            "2" { $info = "UsoOficial" }
+            default { Exit-WithError "Calificación de la información no válida." }
+        }
+    }
+    elseif ($category -eq "Alta") {
+        Write-Host "`nSelecciona la calificación de la información:"
+        Write-Host "1) Uso Oficial"
+        $infoChoice = Read-Host
+        switch ($infoChoice) {
+            "1" { $info = "UsoOficial" }
+            default { Exit-WithError "Calificación de la información no válida." }
+        }
+    }
+    else {
+        Exit-WithError "Categoría del sistema no soportada."
+    }
+    
+    $profileSuffix = "$category`_$info"
+    $profileScript = Join-Path $PSScriptRoot "$category`_$info\Main_$profileSuffix.ps1"
+    if (-not (Test-Path $profileScript)) {
+        Exit-WithError "No se pudo determinar el perfil correspondiente a la categoría y calificación seleccionadas."
+    }
+    
+    if (($Global:Info.Action -eq "Set")) {
+        $backupFolderName = "$($Global:Info.Timestamp)`_$profileSuffix"
+        $Global:BackupFolderPath = Join-Path $backupsFolder $backupFolderName
+        New-Item -Path $Global:BackupFolderPath -ItemType Directory | Out-Null
+    }
+    
+    & $profileScript
+    Write-Host ""
+    
+    switch ($Global:Info.Action) {
+        "Set" { Exit-WithSuccess "Adecuación del perfil completada." }
+        "Test" { Exit-WithSuccess "Comprobación del perfil completada." }
     }
 }
-Save-GlobalInfo
 
-if ($Global:GlobalInfo.Action -eq "Restore") {
-    # Listado de subcarpetas de backup
+# Function to restore a backup
+function Restore-Backup {
     $backupFolders = Get-ChildItem $backupsFolder -Directory | Sort-Object LastWriteTime -Descending
     if (-not $backupFolders) {
         Exit-WithError "No hay copias de seguridad disponibles para este equipo."
     }
-
+    
     Write-Host "`nCopias disponibles para este equipo:"
     Write-Host ""
     for ($i = 0; $i -lt $backupFolders.Count; $i++) {
         Write-Host ("{0}) {1}" -f ($i + 1), $backupFolders[$i].Name) -ForegroundColor DarkCyan
     }
-
     Write-Host ""
     $sel = Read-Host -Prompt "Selecciona la copia a restaurar (número)"
     [int]$selIndex = $sel - 1
+    
     if ($selIndex -lt 0 -or $selIndex -ge $backupFolders.Count) {
         Exit-WithError "Copia a restaurar no válida."
     }
-
+    
     $selectedBackup = $backupFolders[$selIndex]
-    # Asumiendo que las carpetas se nombran con algo como: "2025-03-30_12-45-00_Media_Estandar"
     $parts = $selectedBackup.Name -split "_"
-
     if ($parts.Count -ge 4) {
-        # 2025-03-30 , 12-45-00, Media, Estandar
         $category = $parts[2]
         $info = $parts[3]
-
         $profileSuffix = "$category`_$info"
-        $profileScript = Join-Path $PSScriptRoot "Perfil_$profileSuffix\Main_$profileSuffix.ps1"
+        $profileScript = Join-Path $PSScriptRoot "$profileSuffix\Main_$profileSuffix.ps1"
         
         if (-not (Test-Path $profileScript)) {
             Exit-WithError "No se pudo determinar el perfil correspondiente a dicha copia de seguridad. Verifica el nombre de la carpeta."
         }
         $Global:BackupFolderPath = $selectedBackup.FullName
-
+        Show-Info -Message "Restaurando copia de seguridad: $($Global:BackupFolderPath)" -LogOnly
+        
         & $profileScript
-
+        
         Write-Host ""
         Exit-WithSuccess "Restauración completada."
     }
@@ -145,67 +268,19 @@ if ($Global:GlobalInfo.Action -eq "Restore") {
     }
 }
 
-# Si no es restaurar, preguntamos categoría/calificación
-Write-Host "`nSelecciona categoría del sistema:"
-Write-Host "1) Media"
-Write-Host "2) Alta"
-$catChoice = Read-Host
-switch ($catChoice) {
-    "1" { $category = "Media" }
-    "2" { $category = "Alta" }
-    default {
-        Exit-WithError "Categoría del sistema no válida."
-    }
-}
-
-if ($category -eq "Media") {
-    Write-Host "`nSelecciona la calificación de la información:"
-    Write-Host "1) Estándar"
-    Write-Host "2) Uso Oficial"
-    $infoChoice = Read-Host
-    switch ($infoChoice) {
-        "1" { $info = "Estandar" }
-        "2" { $info = "UsoOficial" }
+# Main loop to show the action menu and execute actions
+do {
+    $invalid = $false
+    $choice = Show-ActionMenu
+    switch ($choice) {
+        "1" { Invoke-TestProfile }
+        "2" { Invoke-SetProfile }
+        "3" { Invoke-RestoreProfile }
+        "4" { Invoke-ShowConfig }
+        "5" { Exit-WithPause }
         default {
-            Exit-WithError "Calificación de la información no válida."
+            Write-Host "Acción no válida. Intenta de nuevo."
+            $invalid = $true
         }
     }
-}
-elseif ($category -eq "Alta") {
-    Write-Host "`nSelecciona la calificación de la información:"
-    Write-Host "1) Uso Oficial"
-    $infoChoice = Read-Host
-    switch ($infoChoice) {
-        "1" { $info = "UsoOficial" }
-        default {
-            Exit-WithError "Calificación de la información no válida."
-        }
-    }
-}
-else {
-    Exit-WithError "Categoría del sistema no soportada."
-}
-
-$profileSuffix = "$category`_$info"
-$profileScript = Join-Path $PSScriptRoot "Perfil_$category`_$info\Main_$profileSuffix.ps1"
-# Verificamos que el script existe
-if (-not (Test-Path $profileScript)) {
-    Exit-WithError "No se pudo determinar el perfil correspondiente a la categoría y calificación seleccionadas."
-}
-
-$backupFolderName = "$($Global:GlobalInfo.Timestamp)`_$profileSuffix"
-$Global:BackupFolderPath = Join-Path $backupsFolder $backupFolderName
-if (-not $Global:GlobalInfo.Action -eq "Test") {
-    New-Item -Path $Global:BackupFolderPath -ItemType Directory | Out-Null
-}
-
-& $profileScript
-
-# Fin del script
-Write-Host ""
-if ($Global:GlobalInfo.Action -eq "Set") {
-    Exit-WithSuccess "Adecuación completada."
-}
-elseif ($Global:GlobalInfo.Action -eq "Test") {
-    Exit-WithSuccess "Comprobación completada."
-}
+} while ($Global:Info.Action -eq "Config" -or $invalid)

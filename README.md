@@ -1,4 +1,4 @@
-# Script para adecuación al ENS en Sistemas Windows 10/11
+# WIN-ENS
 
 Este repositorio contiene una colección de scripts de PowerShell diseñados para automatizar la **adecuación de equipos Windows 10 u 11** (independientes) al [Esquema Nacional de Seguridad](https://www.boe.es/buscar/doc.php?id=BOE-A-2022-7191) (ENS) y a la guía [CCN-STIC-599AB23](https://www.ccn-cert.cni.es/es/guias-de-acceso-publico-ccn-stic/7242-ccn-stic-599ab23-perfilado-de-seguridad-para-windows-cliente-cliente-miembro-o-cliente-independiente/file.html). El proyecto permite:
 
@@ -8,7 +8,7 @@ Este repositorio contiene una colección de scripts de PowerShell diseñados par
 
 La meta principal es que sea un sistema **modular, portátil y extensible**, en el que cada **grupo de políticas** y cada **perfil** dispongan de su propio directorio y lógica independiente.
 
-Actualmente, los scrips solo trabajan con los mismos parámetros que comprueba la herramienta [CLARA](https://www.ccn-cert.cni.es/es/soluciones-seguridad/clara.html) para elaborar el informe de cumplimiento.
+Actualmente, los scripts solo trabajan con los mismos parámetros que comprueba la herramienta [CLARA](https://www.ccn-cert.cni.es/es/soluciones-seguridad/clara.html) para elaborar el informe de cumplimiento.
 
 ---
 
@@ -19,62 +19,67 @@ La organización de ficheros y carpetas se basa en un enfoque modular que facili
 - **Main.ps1**: Script principal (entry point).
 
   - Comprueba privilegios de administrador.
-  - Pide al usuario la **acción** (Test/Set/Restore) y los **perfiles** a aplicar (p.ej. "Media-Estandar").
+  - Muestra un menú de acciones (Test/Set/Restore/Config).
+  - Solicita la categoría y calificación del sistema.
   - Lanza el script correspondiente del perfil elegido.
 
-- **PrintsAndLogs.ps1**: Contiene funciones de **impresión** y **registro** (log):
+- **PrintsAndLogs.ps1**: Funciones de impresión y registro (log), con formato homogéneo y colores.
 
-  - `Show-Info`, `Show-Error`, `Show-Success` para mensajes con color y formato homogéneo.
-  - `Save-GlobalInfo` para guardar metadatos en JSON.
-  - `Show-TableRow` y `Show-TableHeader` para presentar tablas en consola, etc.
+  - `Show-Info`, `Show-Error`, `Show-Success`, `Show-TableRow`, `Show-TableHeader`, etc.
+  - Registro de mensajes y metadatos en archivos `.log` y `.json`.
 
-- **Perfiles**: Cada perfil de ENS ("Media_Estandar", "Alta_UsoOficial", etc.) tiene una carpeta y, dentro de esta:
+- **Config.ps1**: Funciones para la gestión y validación de la configuración global.
 
-  - **Main{Categoria}{Calificacion}.ps1**: controla la ejecución interna de ese perfil.
-  - Subcarpetas con scripts para cada **grupo** de políticas: scripts de políticas concretas que implementan su propia lógica de **Test/Set/Restore**.
+  - Carga y comparación de la configuración (`config.json`) con la estructura real de perfiles, grupos y políticas.
+  - Detección y visualización de discrepancias.
+  - Fusión y actualización de grupos de políticas.
+
+- **Utils.ps1**: Funciones de utilidad para el resto de los archivos, como la conversión recursiva de objetos a hashtables (con opción de ordenación) y las funciones encargadas de guardar archivos en disco (backups, info).
+
+- **Perfiles**: Cada perfil ENS ("Media_Estandar", "Alta_UsoOficial", etc.) tiene su propia carpeta:
+
+  - **Main*{Categoria}*{Calificacion}.ps1**: Define el objeto de perfil y ejecuta los grupos.
+  - Subcarpetas para cada grupo de políticas, con su propio script principal (`Main_{Grupo}.ps1`) y scripts de políticas concretas (`01_UAC_AdminPromptBehavior.ps1`, etc.).
 
 - **Logs/**: Directorio donde se almacenan:
 
-  - Fichero `.log` con los mensajes de ejecución.
-  - Fichero `.json` con el estado final (resultado de la acción, errores, etc.).
+  - Archivos `.log` con los mensajes de ejecución.
+  - Archivos `.json` con el estado final y metadatos.
 
-- **Backups/**: Directorio donde se almacenan copias de seguridad del sistema antes de aplicar cambios.
+- **Backups/**: Directorio donde se almacenan copias de seguridad del sistema antes de aplicar cambios, organizadas por máquina y perfil.
 
 ---
 
 ## Funcionamiento Paso a Paso
 
-A continuación, un resumen de cómo se ejecuta y qué hace cada parte:
-
 1. **Inicio (Main.ps1)**
 
-   - Comprueba si somos **Administradores**. Si no, fuerza la elevación con `Start-Process -Verb RunAs`.
-   - Limpia la consola y muestra un **menú** con las acciones disponibles:
-     1. **Test**: Realizar comprobaciones de estado sin aplicar cambios.
-     2. **Set**: Aplicar un perfil, modificando el sistema para que cumpla los requisitos.
-     3. **Restore**: Restaurar la configuración previa a partir de una copia de seguridad.
-   - En base a la selección, pide la **Categoría del sistema de información** y la **Calificación de la información**.
-   - Genera las carpetas de **Logs** y **Backups** para la máquina actual y coloca en `$Global:LogFilePath` y `$Global:BackupFolderPath` las rutas concretas.
+   - Comprueba privilegios de administrador y eleva si es necesario.
+   - Inicializa la configuración y los directorios de logs/backups.
+   - Muestra el menú de acciones y gestiona la selección del usuario.
 
-2. **Flujo Set / Test**
+2. **Verificación de la configuración**
 
-   - Si la acción elegida es **Test** o **Set**, se pregunta por la categoría del sistema de información (p.ej. "Media" o "Alta") y la calificación de la información (p.ej. "Estándar" o "UsoOficial").
-   - Con esa información, compone un sufijo y llama, por ejemplo, a `Main_Media_Estandar.ps1`, que se ubica en la carpeta `Perfil_Media_Estandar`.
-   - `Main_Media_Estandar.ps1` recorre sus subcarpetas y scripts (políticas concretas), ejecutando su función principal correspondiente.
-     - Por ejemplo, en modo **Test**, llama a `Test-01_UAC_AdminPromptBehavior`, `Test-02_Ejemplo`, etc.
-     - En modo **Set**, llama a `Set-01_UAC_AdminPromptBehavior`, etc. (estas funciones hacen backups y luego fijan valores de registro, directivas, etc.).
+   - Carga la configuración global desde `config.json` (o la crea si no existe).
+   - Compara la configuración con la estructura real de archivos y muestra discrepancias.
+   - Permite fusionar y actualizar la configuración según los cambios detectados.
 
-3. **Flujo Restore**
+3. **Ejecución de perfiles y grupos**
 
-   - Si la acción elegida es **Restore**, Main.ps1 lista las **copias** del directorio "Backups\{MachineId}".
-   - Permite al usuario seleccionar la carpeta de backup.
-   - Deduce de su nombre qué perfil se aplicó originalmente (`Media_Estandar`, etc.).
-   - Llama al script de perfil correspondiente con una variable `$Global:BackupFolderPath` apuntando a la carpeta de backup para restaurar los ajustes previos.
+   - Main.ps1 llama al script principal del perfil seleccionado (`Main_{Categoria}_{Calificacion}.ps1`).
+   - El script del perfil define el objeto `$ProfileInfo` y recorre sus subcarpetas, llamando al script principal de cada grupo (`Main_{Grupo}.ps1`).
+   - Cada grupo define su objeto `$GroupInfo` y ejecuta sus políticas mediante scripts independientes.
+   - Las políticas implementan funciones `Test-Policy`, `Set-Policy`, `Restore-Policy` y gestionan su propio estado y backups.
 
-4. **Registro e Impresión**
-   - Durante todo el proceso, se va guardando un log de texto y un fichero JSON con metadatos en “Logs\{MachineId}\{Timestamp}.log/json”.
-   - Las funciones de `PrintsAndLogs.ps1` formatean la consola para una salida limpia, con encabezados, tablas y colores.
-   - Los errores se guardan en `$Global:GlobalInfo.Error` y se escriben en el log.
+4. **Flujo Test / Set / Restore**
+
+   - En modo **Test**, se comprueba el estado de las políticas sin modificar el sistema.
+   - En modo **Set**, se aplican los cambios y se crean backups previos.
+   - En modo **Restore**, se restauran los valores desde una copia de seguridad seleccionada.
+
+5. **Registro e impresión**
+   - Todos los mensajes y resultados se registran en archivos `.log` y `.json` en la carpeta `Logs`.
+   - Los errores y estados se guardan en los objetos globales y se muestran en consola con formato y color.
 
 ---
 
@@ -83,7 +88,7 @@ A continuación, un resumen de cómo se ejecuta y qué hace cada parte:
 1. **Descarga o clona** este repositorio en tu equipo.
 2. **Ejecuta** `Main.ps1` con PowerShell **como Administrador** (o deja que el script fuerce la elevación).
    - Recuerda que si tu ExecutionPolicy bloquea scripts, puedes habilitar o pasar `-ExecutionPolicy Bypass` al lanzar PowerShell.
-3. **El script** te pedirá la acción ("Test", "Set" o "Restore") y el **perfil** de seguridad (categoría del sistema de información y calificación de la información).
+3. **El script** te pedirá la acción y el **perfil** de seguridad (categoría del sistema de información y calificación de la información).
 4. **Observa** cómo se generan las carpetas "Logs" y "Backups". Se guardarán registros y copias de seguridad ahí.
 5. Revisa la **salida en pantalla** para ver la información de estado y las tablas de cada política que se comprueba o aplica.
 
@@ -93,17 +98,17 @@ A continuación, un resumen de cómo se ejecuta y qué hace cada parte:
 
 Si deseas añadir un nuevo grupo de políticas, debes seguir los siguientes pasos:
 
-1. **Crear** una subcarpeta dentro del perfil de destino (por ejemplo, `Perfil_Media_Estandar\OP_ACC_5`).
-2. Dentro, poner un `Main_OP_ACC_5.ps1` con un objeto `Info` y la invocación a cada nueva política:
+1. **Crear** una subcarpeta dentro del perfil de destino (por ejemplo, `Media_Estandar\OP_ACC_5`).
+2. Dentro, poner un `Main_OP_ACC_5.ps1` con un objeto `GroupInfo` y la invocación a cada nueva política:
    ```powershell
-   $OP_ACC_5_Info = [PSCustomObject]@{
-       Name = 'OP.ACC.5'
+   $GroupInfo = [PSCustomObject]@{
+       Name = 'OP_ACC_5'
        # ...
    }
-   # Lógica para llamar a Test-XX, Set-XX, Restore-XX
+   # Lógica para llamar a Test-Policy, Set-Policy, Restore-Policy
    ```
 3. Crear un script para cada política concreta (`01_PoliticaNueva.ps1`, etc.).
-   - Incluir las funciones `Test-01_PoliticaNueva`, `Set-01_PoliticaNueva` y `Restore-01_PoliticaNueva`.
+   - Incluir las funciones `Test-Policy`, `Set-Policy` y `Restore-Policy`.
    - Cada función define la lógica correspondiente.
 
 Si, por el contrario, solo deseas añadir un nuevo script a un grupo existente, puedes realizar el paso tres en la carpeta de ese grupo.
@@ -116,11 +121,9 @@ Es **muy recomendable** implementar los nuevos archivos a partir de una copia de
 
 Los primero cambios a hacer son:
 
-- Las copias de seguridad hay que gestionarlas de manera distinta, ya que al usar `reg export`, se guarda más información que el valor modificado, lo que causa que cuando varias políticas respaldan y modifican el mismo subárbol, se acaben sobreescribiendo y solo se restaure la última política aplicada.
 - Al aplicar un perfil, se fuerzan los mínimos, sin comprobar si el sistema tenía una configuración más restrictiva, que debería darse por buena.
-- Estudiar si se debe hacer una comprobación de que se haya creado el documento de respaldo antes de cambiar el valor en el registro.
-- Al restaurar una copia de seguridad, que se revise el archivo de resultados `json` para saber hasta qué política restaurar y así evitar errores de archivos no encontrados correspondientes a políticas que no se llegaron a ejecutar.
+- Añadir alternativas a la ejecución interactiva como la ejecución mediante parámetros.
 
-Deespués, hay que terminar de añadir los scripts para cubrir todas las políticas de las categorías "Media" y "Alta" y las calificaciones "Estándar" y "Uso Oficial".
+Después, hay que terminar de añadir los scripts para cubrir todas las políticas de las categorías "Media" y "Alta" y las calificaciones "Estándar" y "Uso Oficial".
 
 Una vez se complete eso, se estudiará la posibilidad de crear una aplicación de escritorio que permita un uso más amigable y muestre los resultados de forma más vistosa.

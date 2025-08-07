@@ -1,19 +1,12 @@
 ﻿###############################################################################
 # PrintsAndLogs.ps1
-# Funciones de impresión, log y guardado de info global
+# Print, log, and global info saving functions
 ###############################################################################
 
-# Longitud máxima de las líneas a imprimir en consola. Se recomienda que sea al menos 80 para mostrar las tablas correctamente.
+# Maximum length of lines to print in the console
 $Global:MaxLineLength = 120
 
-function Save-GlobalInfo {
-    # Convierte $Global:GlobalInfo a JSON y lo escribe en $Global:ResultFilePath
-    if ($Global:ResultFilePath -and $Global:GlobalInfo) {
-        $jsonData = $Global:GlobalInfo | ConvertTo-Json -Depth 5
-        Set-Content -Path $Global:ResultFilePath -Value $jsonData -Encoding UTF8
-    }
-}
-
+# Print a header of three lines with a centered text
 function Show-Header3Lines {
     param(
         [Parameter(Mandatory = $true)]
@@ -31,6 +24,7 @@ function Show-Header3Lines {
     Write-Host ""
 }
 
+# Print a header of one line with a centered text
 function Show-Header1Line {
     param(
         [Parameter(Mandatory = $true)]
@@ -55,12 +49,13 @@ function Show-Header1Line {
     Write-Host ""
 }
 
+# Log and optionally print an informational message
 function Show-Info {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory = $false)]
-        [bool]$LogOnly = $false
+        [Parameter()]
+        [switch]$LogOnly
     )
     if (-not $LogOnly) {
         Write-Host ("[INFO] {0}" -f $Message) -ForegroundColor DarkGray
@@ -72,12 +67,31 @@ function Show-Info {
     }
 }
 
+# Log and optionally print a warning message
+function Show-Warning {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+        [Parameter()]
+        [switch]$LogOnly
+    )
+    if (-not $LogOnly) {
+        Write-Host ("[WARNING] {0}" -f $Message) -ForegroundColor Yellow
+    }
+    if ($Global:LogFilePath) {
+        $timestamp = (Get-Date).ToString("HH:mm:ss")
+        $logLine = "[$timestamp] [WARNING] $Message"
+        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8
+    }
+}
+
+# Log and optionally print an error message
 function Show-Error {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory = $false)]
-        [bool]$LogOnly = $false
+        [Parameter()]
+        [switch]$LogOnly
     )
     if (-not $LogOnly) {
         Write-Host ("[ERROR] {0}" -f $Message) -ForegroundColor Red
@@ -89,12 +103,13 @@ function Show-Error {
     }
 }
 
+# Log and optionally print a success message
 function Show-Success {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
-        [Parameter(Mandatory = $false)]
-        [bool]$LogOnly = $false
+        [Parameter()]
+        [switch]$LogOnly
     )
     if (-not $LogOnly) {
         Write-Host ("[OK] {0}" -f $Message) -ForegroundColor Green
@@ -106,6 +121,7 @@ function Show-Success {
     }
 }
 
+# Print a table header for displaying policy testing information
 function Show-TableHeader {
     $maxLine = $Global:MaxLineLength
     $separator = "-" * $maxLine
@@ -120,6 +136,7 @@ function Show-TableHeader {
     Write-Host $separator
 }
 
+# Print a row in the policy testing information table
 function Show-TableRow {
     param(
         [string]$PolicyName,
