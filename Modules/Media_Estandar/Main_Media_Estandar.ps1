@@ -3,7 +3,7 @@
 # PERFIL MEDIA ESTANDAR: Categoría = Media, Calificación = Estándar
 ###############################################################################
 
-# Object with profile metadata
+# Object with profile's execution information
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $ProfileInfo = [PSCustomObject]@{
     Name   = 'Media_Estandar'

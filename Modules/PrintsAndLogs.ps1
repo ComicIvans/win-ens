@@ -141,14 +141,15 @@ function Show-TableRow {
     param(
         [string]$PolicyName,
         [string]$ExpectedValue,
-        [string]$CurrentValue
+        [string]$CurrentValue,
+        [switch]$ValidValue
     )
     $maxLine = $Global:MaxLineLength
     $col2 = 15
     $col3 = 15
     $col1 = $maxLine - 6 - $col2 - $col3
 
-    $rowColor = if ($ExpectedValue -eq $CurrentValue) { "Green" } else { "Red" }
+    $rowColor = if ($ValidValue -or $ExpectedValue -eq $CurrentValue) { "Green" } else { "Red" }
 
     $policyChunks = $PolicyName -split "(?<=\G.{$col1})"
     $expectedChunks = $ExpectedValue -split "(?<=\G.{$col2})"

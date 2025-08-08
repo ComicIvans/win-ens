@@ -13,14 +13,36 @@ function Initialize-Configuration {
     [string] $ConfigFile = "config.json"
   )
 
-  $configFilePath = Join-Path $PSScriptRoot $ConfigFile
+  $configFilePath = Join-Path $PSScriptRoot "../$ConfigFile"
   $configIsNew = $false
 
+  # A local version is created to save or compare with the loaded one
+  $localConfig = Get-LocalConfig -PrintAndLog
+
   if (Test-Path $configFilePath) {
-    Show-Info "Cargando archivo de configuración..."
+    Show-Info "Cargando archivo de configuración..." -LogOnly
     try {
-      $Global:Config = Get-Content -Path $configFilePath -Raw | ConvertFrom-Json
-      $Global:Config = ConvertTo-HashtableRecursive -Object $Global:Config -Ordered
+      $loadedFile = Get-Content -Path $configFilePath -Raw | ConvertFrom-Json
+      $loadedFile = ConvertTo-HashtableRecursive -Object $loadedFile -Ordered
+      $Global:Config = Get-LocalConfig
+      # Change all keys in the global config to match the loaded file
+      foreach ($key in $loadedFile.Keys) {
+        if ($Global:Config.Keys -contains $key) {
+          $Global:Config[$key] = $loadedFile[$key]
+        }
+        else {
+          Show-Warning "La clave '$key' del archivo de configuración es desconocida, se eliminará."
+        }
+      }
+      Show-Info "Comprobando estructura del archivo de configuración..." -LogOnly
+      if (-not (Test-ObjectStructure -Template $ConfigTemplate -Target $Global:Config -SkipProperties @("ScriptsEnabled"))) {
+        Exit-WithError "El archivo de configuración '$ConfigFile' no tiene la estructura correcta, para más información, consulta los registros."
+      }
+      $newKeys = @($Global:Config.Keys) | Where-Object { -not (@($loadedFile.Keys) -contains $_) }
+      if ($newKeys.Count -gt 0) {
+        Show-Info "Añadiendo nuevas claves al archivo de configuración: $($newKeys -join ', ')"
+      }
+      Save-Config
     }
     catch {
       Exit-WithError "No se ha podido cargar el archivo de configuración. $_"
@@ -30,9 +52,6 @@ function Initialize-Configuration {
     Show-Info "No se ha encontrado el archivo de configuración $ConfigFile. Generando uno nuevo..."
     $configIsNew = $true
   }
-
-  # A local version is created to save or compare with the loaded one
-  $localConfig = Get-LocalConfig $true
 
   if ($configIsNew) {
     # We create and save the new configuration
@@ -48,8 +67,8 @@ function Initialize-Configuration {
   }
   else {
     # Compare the global configuration with the local one
-    if (-not (Compare-Config $localConfig)) {
-      Show-Warning "El archivo de configuración cargado tiene diferencias en los perfiles, grupos o políticas actuales, comprueba la configuración para ver las diferencias."
+    if (-not (Compare-ScriptsEnabled $localConfig)) {
+      Show-Warning "El archivo de configuración tiene diferencias en los perfiles, grupos o políticas actuales, comprueba la configuración para ver las diferencias."
     }
     Show-Success "Archivo de configuración $ConfigFile cargado."
   }
@@ -59,11 +78,12 @@ function Initialize-Configuration {
 function Get-LocalConfig {
   param(
     [Parameter()]
-    $printAndLog = $false
+    [switch] $printAndLog
   )
 
   $localConfig = [ordered]@{
-    Scripts = [ordered]@{}
+    EnforceMinimumPolicyValues = $false
+    ScriptsEnabled             = [ordered]@{}
   }
   
   $profDirs = Get-ChildItem -Path $PSScriptRoot -Directory -ErrorAction SilentlyContinue
@@ -76,8 +96,8 @@ function Get-LocalConfig {
     }
 
     # If the Scripts key for the profile does not exist, we create it
-    if (-not $localConfig.Scripts.Contains($profDir.Name)) {
-      $localConfig.Scripts[$profDir.Name] = [ordered]@{}
+    if (-not $localConfig.ScriptsEnabled.Contains($profDir.Name)) {
+      $localConfig.ScriptsEnabled[$profDir.Name] = [ordered]@{}
     }
   
     # Get the group folders
@@ -87,12 +107,12 @@ function Get-LocalConfig {
       $expectedGroupMain = "Main_{0}.ps1" -f $groupDir.Name
       $groupMainPath = Join-Path $groupDir.FullName $expectedGroupMain
       if (-not (Test-Path $groupMainPath) -and $printAndLog) {
-        Show-Warning "La carpeta de grupo '$($groupDir.Name)' no tiene el archivo '$expectedGroupMain', por lo que no será posible ejecutar dicho grupo dentro del perfil '$($profDir.Name)'."
+        Show-Warning "La carpeta de grupo '$($groupDir.Name)' dentro del perfil '$($profDir.Name)' no tiene el archivo '$expectedGroupMain', por lo que no será posible ejecutar dicho grupo."
       }
 
       # If the group key does not exist in the profile, we create it
-      if (-not $localConfig.Scripts[$profDir.Name].Contains($groupDir.Name)) {
-        $localConfig.Scripts[$profDir.Name][$groupDir.Name] = [ordered]@{}
+      if (-not $localConfig.ScriptsEnabled[$profDir.Name].Contains($groupDir.Name)) {
+        $localConfig.ScriptsEnabled[$profDir.Name][$groupDir.Name] = [ordered]@{}
       }
 
       # Policies: any file that is not the main one for that group
@@ -102,23 +122,23 @@ function Get-LocalConfig {
       foreach ($file in $policyFiles) {
         $policyName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
         # We assign true to enable the policy by default
-        $localConfig.Scripts[$profDir.Name][$groupDir.Name][$policyName] = $true
+        $localConfig.ScriptsEnabled[$profDir.Name][$groupDir.Name][$policyName] = $true
       }
     }
   }
   return $localConfig
 }
 
-# Function to compare the global configuration with the local one
-function Compare-Config {
+# Function to compare the ScriptsEnabled between the global and local configurations
+function Compare-ScriptsEnabled {
   param(
     [Parameter(Mandatory = $true)]
     $localConfig
   )
 
   # Convert both to a subset with only the names
-  $globalSubset = Get-ConfigSubset $Global:Config
-  $localSubset = Get-ConfigSubset $localConfig
+  $globalSubset = Get-ScriptsEnabledSubset $Global:Config
+  $localSubset = Get-ScriptsEnabledSubset $localConfig
 
   $serializedGlobal = $globalSubset | ConvertTo-Json -Depth 10
   $serializedLocal = $localSubset  | ConvertTo-Json -Depth 10
@@ -133,13 +153,41 @@ function Show-Config {
     [string] $ConfigFile = "config.json"
   )
 
-  Show-Header3Lines "Configuración de políticas"
+  Show-Header3Lines "CONFIGURACIÓN ACTUAL"
   
+  Show-Header1Line "Configuración general"
+
+  # Dictionary with descriptions for each general config key
+  $configDescriptions = @{
+    "EnforceMinimumPolicyValues" = "Si está activado, se fuerza el valor mínimo requerido por cada política, sobrescribiendo valores más seguros"
+  }
+
+  # Print all general config keys except ScriptsEnabled
+  foreach ($key in $Global:Config.Keys) {
+    if ($key -ne "ScriptsEnabled") {
+      $desc = $configDescriptions[$key]
+      $rawValue = $Global:Config[$key]
+      if ($rawValue -is [bool]) {
+        $value = if ($rawValue) { "Habilitado" } else { "Deshabilitado" }
+      }
+      else {
+        $value = $rawValue
+      }
+      Write-Host ("{0}: " -f $key) -NoNewline -ForegroundColor Magenta
+      Write-Host ("{0} " -f $desc) -ForegroundColor Gray
+      Write-Host (" -> Valor actual: ") -NoNewline -ForegroundColor Gray
+      Write-Host ("{0}" -f $value) -ForegroundColor Blue
+      Write-Host ""
+    }
+  }
+
+  Show-Header1Line "Configuración relativa a políticas"
+
   # Get the local configuration
   $localConfig = Get-LocalConfig
 
   # Create a list of all profiles from the local configuration
-  $profiles = $localConfig.Scripts.Keys
+  $profiles = $localConfig.ScriptsEnabled.Keys
   Write-Host "¿Qué configuración quieres visualizar?:" -ForegroundColor White
   Write-Host "0) Todos los perfiles" -ForegroundColor DarkCyan
   $index = 1
@@ -147,8 +195,10 @@ function Show-Config {
     Write-Host ("{0}) Perfil {1}" -f $index, $prof) -ForegroundColor DarkCyan
     $index++
   }
+  Write-Host ("{0}) Ninguno" -f $index) -ForegroundColor DarkCyan
   $choiceNumber = Read-Host -Prompt "Introduce el número correspondiente"
-  
+  Write-Host ""
+      
   if ($choiceNumber -eq 0) {
     $profilesToShow = $profiles
   }
@@ -156,6 +206,10 @@ function Show-Config {
     $profilesArray = @($profiles)
     $selectedProfile = $profilesArray[$choiceNumber - 1]
     $profilesToShow = @($selectedProfile)
+  }
+  elseif ($choiceNumber -eq $index) {
+    Write-Host "Volviendo al menú principal..." -ForegroundColor Gray
+    return
   }
   else {
     Write-Host "Selección no válida." -ForegroundColor Red
@@ -171,12 +225,12 @@ function Show-Config {
       
     # Get the groups for the profile in the local and global configurations
     $localGroups = @()
-    if ($localConfig.Scripts.Contains($prof)) { 
-      $localGroups = $localConfig.Scripts[$prof].Keys 
+    if ($localConfig.ScriptsEnabled.Contains($prof)) { 
+      $localGroups = $localConfig.ScriptsEnabled[$prof].Keys 
     }
     $globalGroups = @()
-    if ($Global:Config.Scripts.Contains($prof)) { 
-      $globalGroups = $Global:Config.Scripts[$prof].Keys 
+    if ($Global:Config.ScriptsEnabled.Contains($prof)) { 
+      $globalGroups = $Global:Config.ScriptsEnabled[$prof].Keys 
     }
     $allGroups = ($localGroups + $globalGroups | Select-Object -Unique)
       
@@ -185,12 +239,12 @@ function Show-Config {
       $diffGlobalNotInLocal[$prof][$group] = @()
           
       $localScripts = @()
-      if (($localConfig.Scripts[$prof]) -and ($localConfig.Scripts[$prof].Contains($group))) {
-        $localScripts = $localConfig.Scripts[$prof][$group].Keys
+      if (($localConfig.ScriptsEnabled[$prof]) -and ($localConfig.ScriptsEnabled[$prof].Contains($group))) {
+        $localScripts = $localConfig.ScriptsEnabled[$prof][$group].Keys
       }
       $globalScripts = @()
-      if (($Global:Config.Scripts[$prof]) -and ($Global:Config.Scripts[$prof].Contains($group))) {
-        $globalScripts = $Global:Config.Scripts[$prof][$group].Keys
+      if (($Global:Config.ScriptsEnabled[$prof]) -and ($Global:Config.ScriptsEnabled[$prof].Contains($group))) {
+        $globalScripts = $Global:Config.ScriptsEnabled[$prof][$group].Keys
       }
       $allScripts = ($localScripts + $globalScripts | Select-Object -Unique)
           
@@ -252,10 +306,10 @@ function Show-Config {
           Write-Host ""
           if ($userResp -match '^[SsYy]') {
             # Merge the local group with the global one
-            $globalGroup = $Global:Config.Scripts[$prof][$group]
-            $localGroup = $localConfig.Scripts[$prof][$group]
+            $globalGroup = $Global:Config.ScriptsEnabled[$prof][$group]
+            $localGroup = $localConfig.ScriptsEnabled[$prof][$group]
             $mergedGroup = Merge-PolicyGroup -GlobalGroup $globalGroup -LocalGroup $localGroup
-            $Global:Config.Scripts[$prof][$group] = $mergedGroup
+            $Global:Config.ScriptsEnabled[$prof][$group] = $mergedGroup
             Save-Config $ConfigFile
           }
         }
@@ -264,26 +318,26 @@ function Show-Config {
   }
   
   # Show the current global configuration
-  Show-Header1Line "Configuración global actual"
+  Show-Header1Line "Estado de las políticas actuales"
 
   Write-Host "En verde se muestran los scripts habilitados, en rojo los deshabilitados, en azul los nuevos que no estaban contemplados en la configuración, y en amarillo los que se encontraban en la configuración pero no están presentes." -ForegroundColor DarkGray
   Write-Host ""
 
   foreach ($prof in $profilesToShow) {
     Write-Host "Perfil: $prof" -ForegroundColor Magenta
-    foreach ($group in $Global:Config.Scripts[$prof].Keys) {
+    foreach ($group in $Global:Config.ScriptsEnabled[$prof].Keys) {
       Write-Host " Grupo: $group" -ForegroundColor Cyan
           
-      $globalScripts = $Global:Config.Scripts[$prof][$group].Keys
+      $globalScripts = $Global:Config.ScriptsEnabled[$prof][$group].Keys
       $localScripts = @()
-      if (($localConfig.Scripts[$prof]) -and ($localConfig.Scripts[$prof].Contains($group))) {
-        $localScripts = $localConfig.Scripts[$prof][$group].Keys
+      if (($localConfig.ScriptsEnabled[$prof]) -and ($localConfig.ScriptsEnabled[$prof].Contains($group))) {
+        $localScripts = $localConfig.ScriptsEnabled[$prof][$group].Keys
       }
       $allScripts = ($globalScripts + $localScripts | Select-Object -Unique)
       foreach ($script in $allScripts) {
         $color = "Black"
-        if ($Global:Config.Scripts[$prof][$group].Contains($script)) {
-          $status = $Global:Config.Scripts[$prof][$group][$script]
+        if ($Global:Config.ScriptsEnabled[$prof][$group].Contains($script)) {
+          $status = $Global:Config.ScriptsEnabled[$prof][$group][$script]
           if ($status -eq $true) {
             $color = "Green"      # Enabled
           }
@@ -309,26 +363,26 @@ function Show-Config {
   Read-Host
 }
 
-# Function to extract a subset of the configuration with only the names of profiles, groups, and policies
-function Get-ConfigSubset {
+# Function to extract a subset of the configuration with only ScriptsEnabled and the names of its profiles, groups, and policies
+function Get-ScriptsEnabledSubset {
   param(
     [Parameter(Mandatory = $true)]
     $Config
   )
   
-  if (-not $Config.Scripts) {
+  if (-not $Config.ScriptsEnabled) {
     return @{ Scripts = @{} }
   }
 
   $subset = @{}
 
-  foreach ($profileName in $Config.Scripts.Keys) {
+  foreach ($profileName in $Config.ScriptsEnabled.Keys) {
     $subset[$profileName] = @{}
 
-    foreach ($grupoName in $Config.Scripts[$profileName].Keys) {
+    foreach ($grupoName in $Config.ScriptsEnabled[$profileName].Keys) {
       $subset[$profileName][$grupoName] = @()
 
-      $polDict = $Config.Scripts[$profileName][$grupoName]
+      $polDict = $Config.ScriptsEnabled[$profileName][$grupoName]
       foreach ($policyName in $polDict.Keys) {
         # Only include the policy name, not its value
         $subset[$profileName][$grupoName] += $policyName
@@ -383,7 +437,7 @@ function Save-Config {
     [string] $ConfigFile = "config.json"
   )
 
-  $configFilePath = Join-Path $PSScriptRoot $ConfigFile
+  $configFilePath = Join-Path $PSScriptRoot "../$ConfigFile"
 
   # Convert the global configuration to a JSON string and save it to the file
   try {

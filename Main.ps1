@@ -7,13 +7,15 @@
 [Console]::InputEncoding = [Text.Encoding]::UTF8
 
 # Import utility functions
-Import-Module "$PSScriptRoot/Utils.ps1"
+Import-Module "$PSScriptRoot/Modules/Utils.ps1"
 # Import PrintsAndLogs, where print functions are defined
-Import-Module "$PSScriptRoot/PrintsAndLogs.ps1"
+Import-Module "$PSScriptRoot/Modules/PrintsAndLogs.ps1"
 # Import configuration functions
-Import-Module "$PSScriptRoot/Config.ps1"
+Import-Module "$PSScriptRoot/Modules/Config.ps1"
 # Import profile executor
-Import-Module "$PSScriptRoot/ProfileExecutor.ps1"
+Import-Module "$PSScriptRoot/Modules/ProfileExecutor.ps1"
+# Import templates
+Import-Module "$PSScriptRoot/Modules/Templates.ps1"
 
 # Privilege check
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -24,7 +26,7 @@ if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adminis
     exit
 }
 
-# Global object with general execution metadata
+# Global object with general execution information
 $Global:Info = [PSCustomObject]@{
     Timestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
     MachineId = Get-ItemPropertyValue -Path "HKLM:\SOFTWARE\Microsoft\Cryptography" -Name "MachineGuid"
@@ -75,7 +77,7 @@ function Exit-WithSuccess {
 }
 
 # Log directories
-$logsRoot = Join-Path $PSScriptRoot "..\Logs"
+$logsRoot = Join-Path $PSScriptRoot "./Logs"
 $logsFolder = Join-Path $logsRoot $Global:Info.MachineId
 
 try {
@@ -109,7 +111,7 @@ catch {
 }
 
 # Backup directories
-$backupsRoot = Join-Path $PSScriptRoot "..\Backups"
+$backupsRoot = Join-Path $PSScriptRoot "./Backups"
 $backupsFolder = Join-Path $backupsRoot $Global:Info.MachineId
 
 try {
@@ -189,8 +191,8 @@ function Select-ExecuteProfile {
 
     Write-Host ""
     switch ($Global:Info.Action) {
-        "Set" { Exit-WithSuccess "Adecuación del perfil completada." }
-        "Test" { Exit-WithSuccess "Comprobación del perfil completada." }
+        "Set" { Exit-WithSuccess "[$profileName] Adecuación completada." }
+        "Test" { Exit-WithSuccess "[$profileName] Comprobación completada." }
     }
 }
 
@@ -227,7 +229,7 @@ function Restore-Backup {
         Invoke-Profile -ProfileName $profileName
 
         Write-Host ""
-        Exit-WithSuccess "Restauración completada."
+        Exit-WithSuccess "[$profileName] Restauración completada."
     }
     else {
         Exit-WithError "No se pudo interpretar la copia de seguridad. Verifica el nombre de la carpeta."

@@ -3,7 +3,7 @@
 # op.acc.4: Proceso de gestión de derechos de acceso
 ###############################################################################
 
-# Object with group metadata
+# Object with group's execution information
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $GroupInfo = [PSCustomObject]@{
     Name     = 'OP_ACC_4'
