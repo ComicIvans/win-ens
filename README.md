@@ -8,43 +8,35 @@ Este repositorio contiene una colección de scripts de PowerShell diseñados par
 
 La meta principal es que sea un sistema **modular, portátil y extensible**, en el que cada **grupo de políticas** y cada **perfil** dispongan de su propio directorio y lógica independiente.
 
-Actualmente, los scripts solo trabajan con los mismos parámetros que comprueba la herramienta [CLARA](https://www.ccn-cert.cni.es/es/soluciones-seguridad/clara.html) para elaborar el informe de cumplimiento.
+_Actualmente, los scripts solo trabajan con los mismos parámetros que comprueba la herramienta [CLARA](https://www.ccn-cert.cni.es/es/soluciones-seguridad/clara.html) para elaborar el informe de cumplimiento._
 
 ---
 
 ## Estructura General del Proyecto
 
-La organización de ficheros y carpetas se basa en un enfoque modular que facilita añadir o quitar scripts. Los archivos y carpetas principales son:
+La organización de ficheros y carpetas se basa en un enfoque modular, con todo el código centralizado en la carpeta `Modules/` excepto por `Main.ps1`, el punto de entrada.
 
 - **Main.ps1**: Script principal (entry point).
 
-  - Comprueba privilegios de administrador.
-  - Muestra un menú de acciones (Test/Set/Restore/Config).
-  - Solicita la categoría y calificación del sistema.
-  - Lanza el script correspondiente del perfil elegido.
+  - Comprueba privilegios de administrador y eleva si es necesario.
+  - Inicializa configuración, directorios de logs y backups.
+  - Muestra menú de acciones (Test/Set/Restore/Config) y gestiona la selección de perfil.
+  - Llama a la correspondiente función en `Modules/ProfileExecutor.ps1` para continuar con la lógica.
 
-- **PrintsAndLogs.ps1**: Funciones de impresión y registro (log), con formato homogéneo y colores.
+- **Modules/**: Carpeta que agrupa la lógica modular del proyecto:
 
-  - `Show-Info`, `Show-Error`, `Show-Success`, `Show-TableRow`, `Show-TableHeader`, etc.
-  - Registro de mensajes y metadatos en archivos `.log` y `.json`.
-
-- **Config.ps1**: Funciones para la gestión y validación de la configuración global.
-
-  - Carga y comparación de la configuración (`config.json`) con la estructura real de perfiles, grupos y políticas.
-  - Detección y visualización de discrepancias.
-  - Fusión y actualización de grupos de políticas.
-
-- **Utils.ps1**: Funciones de utilidad para el resto de los archivos, como la conversión recursiva de objetos a hashtables (con opción de ordenación) y las funciones encargadas de guardar archivos en disco (backups, info).
-
-- **Perfiles**: Cada perfil ENS ("Media_Estandar", "Alta_UsoOficial", etc.) tiene su propia carpeta:
-
-  - **Main*{Categoria}*{Calificacion}.ps1**: Define el objeto de perfil y ejecuta los grupos.
-  - Subcarpetas para cada grupo de políticas, con su propio script principal (`Main_{Grupo}.ps1`) y scripts de políticas concretas (`01_UAC_AdminPromptBehavior.ps1`, etc.).
+  - **Config.ps1**: Gestión y validación de configuración global (`config.json`), detección de discrepancias y actualización.
+  - **PrintsAndLogs.ps1**: Funciones de impresión y registro con formato homogéneo y colores (`Show-Info`, `Show-Error`, `Show-Success`, etc.).
+  - **Utils.ps1**: Funciones de utilidad, conversión y validación recursiva de objetos, guardado de archivos en disco (backups, info), etc.
+  - **PolicyExecutor.ps1**: Lógica genérica para ejecutar tipos de políticas comunes (Test/Set/Restore).
+  - **ProfileExecutor.ps1**: Orquesta la ejecución de perfiles completos recorriendo grupos y políticas.
+  - **Templates.ps1**: Plantillas para validar objetos (configuración, `GroupInfo`, `ProfileInfo`, etc.).
+  - **Media_Estandar/**, **Alta_UsoOficial/**, etc.: Carpetas de perfiles con un `Main_{Perfil}.ps1` y subcarpetas de grupos (por ejemplo, `OP_ACC_4`), que contienen un `Main_{Grupo}.ps1` y los scripts de políticas (`01_*.ps1`, etc.).
 
 - **Logs/**: Directorio donde se almacenan:
 
   - Archivos `.log` con los mensajes de ejecución.
-  - Archivos `.json` con el estado final y metadatos.
+  - Archivos `.json` con el estado final de la ejecución del perfil, sus grupos y sus políticas.
 
 - **Backups/**: Directorio donde se almacenan copias de seguridad del sistema antes de aplicar cambios, organizadas por máquina y perfil.
 
@@ -66,10 +58,10 @@ La organización de ficheros y carpetas se basa en un enfoque modular que facili
 
 3. **Ejecución de perfiles y grupos**
 
-   - Main.ps1 llama al script principal del perfil seleccionado (`Main_{Categoria}_{Calificacion}.ps1`).
-   - El script del perfil define el objeto `$ProfileInfo` y recorre sus subcarpetas, llamando al script principal de cada grupo (`Main_{Grupo}.ps1`).
-   - Cada grupo define su objeto `$GroupInfo` y ejecuta sus políticas mediante scripts independientes.
-   - Las políticas implementan funciones `Test-Policy`, `Set-Policy`, `Restore-Policy` y gestionan su propio estado y backups.
+   - `Main.ps1` llama a `Invoke-Profile` dentro de `ProfileExecutor`, que carga el script principal del perfil seleccionado (`Main_{Categoria}_{Calificacion}.ps1`).
+   - El script del perfil define el objeto `$ProfileInfo` y por cada subcarpeta (grupo) se carga el script principal de cada grupo (`Main_{Grupo}.ps1`), que define el objeto `$GroupInfo`.
+   - Cada grupo contiene varias políticas que definen los objetos `$PolicyInfo` y `$PolicyMeta`. Este último servirá para indicarle al script cómo ejecutar dicha política.
+   - Las políticas pueden recurrir a la lógica genérica disponible o implementar sus propias funciones `Test-Policy`, `Set-Policy`, `Restore-Policy`, gestionando toda la ejecución.
 
 4. **Flujo Test / Set / Restore**
 
@@ -78,7 +70,8 @@ La organización de ficheros y carpetas se basa en un enfoque modular que facili
    - En modo **Restore**, se restauran los valores desde una copia de seguridad seleccionada.
 
 5. **Registro e impresión**
-   - Todos los mensajes y resultados se registran en archivos `.log` y `.json` en la carpeta `Logs`.
+   - Todos los mensajes y resultados se registran en un archivo `.log` en la carpeta `Logs`.
+   - El estado de ejecución del script general, su perfil, sus grupos y sus políticas se registra en un archivo `.json` en la carpeta `Logs`.
    - Los errores y estados se guardan en los objetos globales y se muestran en consola con formato y color.
 
 ---
@@ -88,42 +81,32 @@ La organización de ficheros y carpetas se basa en un enfoque modular que facili
 1. **Descarga o clona** este repositorio en tu equipo.
 2. **Ejecuta** `Main.ps1` con PowerShell **como Administrador** (o deja que el script fuerce la elevación).
    - Recuerda que si tu ExecutionPolicy bloquea scripts, puedes habilitar o pasar `-ExecutionPolicy Bypass` al lanzar PowerShell.
-3. **El script** te pedirá la acción y el **perfil** de seguridad (categoría del sistema de información y calificación de la información).
+3. **El script** te pedirá la acción a realizar y, de ser necesario, el **perfil** a aplicar (categoría del sistema de información y calificación de la información).
 4. **Observa** cómo se generan las carpetas "Logs" y "Backups". Se guardarán registros y copias de seguridad ahí.
-5. Revisa la **salida en pantalla** para ver la información de estado y las tablas de cada política que se comprueba o aplica.
+5. Revisa la **salida en pantalla** para ver la información de la ejecución.
 
 ---
 
 ## Cómo añadir nuevas políticas
 
-Si deseas añadir un nuevo grupo de políticas, debes seguir los siguientes pasos:
+Si deseas añadir un nuevo perfil, grupo de políticas o políticas a grupos existentes, debes seguir los siguientes pasos:
 
-1. **Crear** una subcarpeta dentro del perfil de destino (por ejemplo, `Media_Estandar\OP_ACC_5`).
-2. Dentro, poner un `Main_OP_ACC_5.ps1` con un objeto `GroupInfo` y la invocación a cada nueva política:
-   ```powershell
-   $GroupInfo = [PSCustomObject]@{
-       Name = 'OP_ACC_5'
-       # ...
-   }
-   # Lógica para llamar a Test-Policy, Set-Policy, Restore-Policy
-   ```
-3. Crear un script para cada política concreta (`01_PoliticaNueva.ps1`, etc.).
-   - Incluir las funciones `Test-Policy`, `Set-Policy` y `Restore-Policy`.
-   - Cada función define la lógica correspondiente.
+1. Para **crear un perfil**, comenzar creando una subcarpeta dentro de `Modules\` (por ejemplo, `Modules\Media_Estandar\`).
+2. Dentro de esa carpeta, crear el script `Main_<Perfil>.ps1` con su correspondiente objeto `$ProfileInfo` (por ejemplo, `Modules\Media_Estandar\Main_Media_Estandar.ps1`).
+3. Para **crear un grupo**, crear una subcarpeta dentro de `Modules\<Perfil>` (por ejemplo, `Modules\Media_Estandar\OP_ACC_4`).
+4. Dentro de esa carpeta, crear el script `Main_<Grupo>.ps1` con su correspondiente objeto `$GroupInfo` (por ejemplo, `Modules\Media_Estandar\OP_ACC_4\Main_OP_ACC_4.ps1`).
+5. Crear un script para cada política concreta (`01_NuevaPolitica.ps1`, etc.) en la misma carpeta:
+   - En caso de ser de un tipo soportado (comprobar las funciones de `PolicyExecutor.ps1`), definir únicamente su objeto `$PolicyInfo` con el tipo correspondiente y la información asociada a dicho tipo.
+   - En caso de ser un tipo nuevo, o generalizar su ejecución mediante una nueva función de `PolicyExecutor.ps1` y su correspondiente llamada en `ProfileExecutor.ps1`, o especificar el tipo `Custom` e incluir las funciones `Test-Policy`, `Set-Policy` y `Restore-Policy` dentro del archivo dela política. En este último caso, asegurarse de implementar una lógica lo más similar posible a las ya existentes en `PolicyExecutor.ps1`.
 
-Si, por el contrario, solo deseas añadir un nuevo script a un grupo existente, puedes realizar el paso tres en la carpeta de ese grupo.
-
-Es **muy recomendable** implementar los nuevos archivos a partir de una copia de los existentes, para asegurar que se sigue la misma estructura y se implementan todas las funciones y variables necesarias con sus nombres correspondientes.
+Es **muy recomendable** implementar los nuevos archivos a partir de una copia de los existentes, para asegurar que se sigue la misma estructura y se implementan todas variables necesarias con sus nombres y propiedades correspondientes. En caso de hacerse, asegurar que todo el contenido se actualice de acuerdo a la nueva política, sin referencias a la original.
 
 ---
 
 ## Trabajo pendiente
 
-Los primero cambios a hacer son:
+Hay que terminar de añadir los scripts para cubrir todas las políticas de las categorías "Media" y "Alta" y las calificaciones "Estándar" y "Uso Oficial".
 
-- Al aplicar un perfil, se fuerzan los mínimos, sin comprobar si el sistema tenía una configuración más restrictiva, que debería darse por buena.
-- Añadir alternativas a la ejecución interactiva como la ejecución mediante parámetros.
+Hecho eso, se pueden plantear alternativas a la ejecución interactiva como la ejecución mediante parámetros.
 
-Después, hay que terminar de añadir los scripts para cubrir todas las políticas de las categorías "Media" y "Alta" y las calificaciones "Estándar" y "Uso Oficial".
-
-Una vez se complete eso, se estudiará la posibilidad de crear una aplicación de escritorio que permita un uso más amigable y muestre los resultados de forma más vistosa.
+Una vez se complete eso, se estudiará la posibilidad de crear una aplicación de escritorio que permita un uso más amigable y muestre los resultados de forma más bonita.
