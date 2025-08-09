@@ -52,7 +52,7 @@ function Invoke-RegistryPolicy {
         # Apply the policy
         Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -LogOnly
         try {
-          New-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $PolicyMeta.ExpectedValue -Type $PolicyMeta.ValueKind -ErrorAction Stop | Out-Null
+          New-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $PolicyMeta.ExpectedValue -Type $PolicyMeta.ValueKind -ErrorAction Stop -Force | Out-Null
           Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
         }
         catch {
@@ -67,7 +67,7 @@ function Invoke-RegistryPolicy {
           Remove-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -ErrorAction Stop
         }
         else {
-          New-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $Backup[$PolicyInfo.Name] -Type $PolicyMeta.ValueKind -ErrorAction Stop | Out-Null
+          New-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $Backup[$PolicyInfo.Name] -Type $PolicyMeta.ValueKind -ErrorAction Stop -Force | Out-Null
         }
         Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada."
       }
