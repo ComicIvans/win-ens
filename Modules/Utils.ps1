@@ -22,14 +22,24 @@ function ConvertTo-HashtableRecursive {
     }
     
     foreach ($prop in $Object.PSObject.Properties) {
-      $ht[$prop.Name] = ConvertTo-HashtableRecursive $prop.Value -Ordered:$Ordered
+      if ($null -eq $prop.Value) {
+        $ht[$prop.Name] = $null
+      }
+      else {
+        $ht[$prop.Name] = ConvertTo-HashtableRecursive $prop.Value -Ordered:$Ordered
+      }
     }
     return $ht
   }
   elseif ($Object -is [System.Collections.IEnumerable] -and -not ($Object -is [string])) {
     $list = @()
     foreach ($item in $Object) {
-      $list += ConvertTo-HashtableRecursive $item -Ordered:$Ordered
+      if ($null -eq $item) {
+        $list += $null
+      }
+      else {
+        $list += ConvertTo-HashtableRecursive $item -Ordered:$Ordered
+      }
     }
     return $list
   }
