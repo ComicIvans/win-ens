@@ -151,6 +151,10 @@ function Show-TableRow {
 
     $rowColor = if ($ValidValue -or $ExpectedValue -eq $CurrentValue) { "Green" } else { "Red" }
 
+    if (-not $CurrentValue) {
+        $CurrentValue = "N/A"
+    }
+
     $policyChunks = $PolicyName -split "(?<=\G.{$col1})"
     $expectedChunks = $ExpectedValue -split "(?<=\G.{$col2})"
     $currentChunks = $CurrentValue -split "(?<=\G.{$col3})"

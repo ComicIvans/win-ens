@@ -17,7 +17,7 @@ function Invoke-RegistryPolicy {
     $currentValue = (Get-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -ErrorAction Stop) | Select-Object -ExpandProperty $PolicyMeta.Property
   }
   catch {
-    Exit-WithError "[$($PolicyInfo.Name)] No se ha podido leer '$($PolicyMeta.Property)' en el registro: $_"
+    $currentValue = $null
   }
 
   $isValid = $false
@@ -52,7 +52,7 @@ function Invoke-RegistryPolicy {
         # Apply the policy
         Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -LogOnly
         try {
-          Set-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $PolicyMeta.ExpectedValue -Type $PolicyMeta.ValueKind -ErrorAction Stop
+          New-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $PolicyMeta.ExpectedValue -Type $PolicyMeta.ValueKind -ErrorAction Stop
           Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
         }
         catch {
@@ -63,7 +63,7 @@ function Invoke-RegistryPolicy {
     "Restore" {
       Show-Info -Message "[$($PolicyInfo.Name)] Restaurando copia de respaldo..." -LogOnly
       try {
-        Set-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $Backup[$PolicyInfo.Name] -Type $PolicyMeta.ValueKind -ErrorAction Stop
+        New-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $Backup[$PolicyInfo.Name] -Type $PolicyMeta.ValueKind -ErrorAction Stop
         Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada."
       }
       catch {
