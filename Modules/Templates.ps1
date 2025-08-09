@@ -3,6 +3,13 @@
 # Templates for various objects
 ###############################################################################
 
+# Template for Config
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+$ConfigTemplate = [PSCustomObject]@{
+  EnforceMinimumPolicyValues = $false
+  ScriptsEnabled             = [ordered]@{}
+}
+
 # Template for ProfileInfo
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $ProfileInfoTemplate = [PSCustomObject]@{
@@ -32,11 +39,4 @@ $PolicyMetaTemplate = [PSCustomObject]@{
   Name        = ""
   Description = ""
   Type        = ""
-}
-
-# Template for Config
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$ConfigTemplate = [PSCustomObject]@{
-  EnforceMinimumPolicyValues = $false
-  ScriptsEnabled             = [ordered]@{}
 }

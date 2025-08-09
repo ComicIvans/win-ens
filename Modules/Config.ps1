@@ -13,6 +13,7 @@ function Initialize-Configuration {
     [string] $ConfigFile = "config.json"
   )
 
+  # Build the path to the configuration file relative to the project root
   $configFilePath = Join-Path $PSScriptRoot "../$ConfigFile"
   $configIsNew = $false
 
@@ -42,6 +43,7 @@ function Initialize-Configuration {
       if ($newKeys.Count -gt 0) {
         Show-Info "Añadiendo nuevas claves al archivo de configuración: $($newKeys -join ', ')"
       }
+      # Save the configuration to ensure keys are ordered and consistent
       Save-Config
     }
     catch {
@@ -74,11 +76,11 @@ function Initialize-Configuration {
   }
 }
 
-# Function to create a config object with the current structure of profiles, groups, and policies and optionally print issues found
+# Function to create a config object with all default keys, including the current structure of profiles, groups, and policies and optionally print issues found
 function Get-LocalConfig {
   param(
     [Parameter()]
-    [switch] $printAndLog
+    [switch] $PrintAndLog
   )
 
   $localConfig = [ordered]@{
@@ -87,11 +89,14 @@ function Get-LocalConfig {
   }
   
   $profDirs = Get-ChildItem -Path $PSScriptRoot -Directory -ErrorAction SilentlyContinue
+  if ($PrintAndLog -and -not $profDirs) {
+    Show-Warning "No se han encontrado carpetas de perfiles en el directorio '$PSScriptRoot', por lo que no será posible ejecutar ninguna acción."
+  }
   
   foreach ($profDir in $profDirs) {
     $expectedProfileMain = "Main_{0}.ps1" -f $profDir.Name
     $profileMainPath = Join-Path $profDir.FullName $expectedProfileMain
-    if (-not (Test-Path $profileMainPath) -and $printAndLog) {
+    if ($PrintAndLog -and -not (Test-Path $profileMainPath)) {
       Show-Warning "La carpeta de perfil '$($profDir.Name)' no tiene el archivo '$expectedProfileMain', por lo que no será posible ejecutar dicho perfil."
     }
 
@@ -102,11 +107,14 @@ function Get-LocalConfig {
   
     # Get the group folders
     $groupDirs = Get-ChildItem -Path $profDir.FullName -Directory -ErrorAction SilentlyContinue
+    if ($PrintAndLog -and -not $groupDirs) {
+      Show-Warning "No se han encontrado carpetas de grupos en el directorio '$($profDir.FullName)', por lo que no será posible ejecutar dicho perfil."
+    }
 
     foreach ($groupDir in $groupDirs) {
       $expectedGroupMain = "Main_{0}.ps1" -f $groupDir.Name
       $groupMainPath = Join-Path $groupDir.FullName $expectedGroupMain
-      if (-not (Test-Path $groupMainPath) -and $printAndLog) {
+      if ($PrintAndLog -and -not (Test-Path $groupMainPath)) {
         Show-Warning "La carpeta de grupo '$($groupDir.Name)' dentro del perfil '$($profDir.Name)' no tiene el archivo '$expectedGroupMain', por lo que no será posible ejecutar dicho grupo."
       }
 
@@ -186,8 +194,8 @@ function Show-Config {
   # Get the local configuration
   $localConfig = Get-LocalConfig
 
-  # Create a list of all profiles from the local configuration
-  $profiles = $localConfig.ScriptsEnabled.Keys
+  # Create a list of all profiles from the local and global configuration, without duplicates
+  $profiles = ($localConfig.ScriptsEnabled.Keys + $Global:Config.ScriptsEnabled.Keys | Select-Object -Unique)
   Write-Host "¿Qué configuración quieres visualizar?:" -ForegroundColor White
   Write-Host "0) Todos los perfiles" -ForegroundColor DarkCyan
   $index = 1
@@ -315,6 +323,7 @@ function Show-Config {
         }
       }
     }
+    Write-Host ""
   }
   
   # Show the current global configuration

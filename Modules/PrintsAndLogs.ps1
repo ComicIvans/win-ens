@@ -35,7 +35,7 @@ function Show-Header1Line {
     $textLength = $textForm.Length
 
     if ($textLength -ge $maxLine) {
-        Write-Host $textForm.Substring(0, $maxLine) -ForegroundColor DarkGray
+        Write-Host $textForm.Substring(0, $maxLine) -ForegroundColor Cyan
     }
     else {
         $remaining = $maxLine - $textLength
@@ -44,7 +44,7 @@ function Show-Header1Line {
         $leftPad = "-" * $leftLen
         $rightPad = "-" * $rightLen
         $output = $leftPad + $textForm + $rightPad
-        Write-Host $output -ForegroundColor DarkGray
+        Write-Host $output -ForegroundColor Cyan
     }
     Write-Host ""
 }

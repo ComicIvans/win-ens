@@ -47,20 +47,20 @@ function Save-GlobalInfo {
     }
   }
   catch {
-    Exit-WithError -Message "Error al guardar la información de ejecución en '$Global:InfoFilePath', se detendrá la ejecución para evitar realizar cambios que no puedan ser fácilmente restaurados. $_" -Code -1
+    Exit-WithError -Message "Error al guardar la información de ejecución en '$Global:InfoFilePath'. $_" -Code -1
   }
 }
 
-# Function to save the backup to disk
+# Function to save a group's backup to disk
 function Save-Backup {
   # Convert the backup to a JSON string and save it to the file
   try {
     $jsonString = $backup | ConvertTo-Json -Depth 10
     $jsonString | Out-File -FilePath $backupFilePath -Encoding UTF8 -Force
-    Show-Info -Message "Archivo de respaldo $($GroupInfo.Name).json guardado." -LogOnly
+    Show-Info -Message "[$($PolicyInfo.Name)] Archivo de respaldo $($GroupInfo.Name).json guardado." -LogOnly
   }
   catch {
-    Exit-WithError "No se ha podido guardar el archivo de respaldo $($GroupInfo.Name).json. $_"
+    Exit-WithError "[$($PolicyInfo.Name)] No se ha podido guardar el archivo de respaldo $($GroupInfo.Name).json. $_"
   }
 }
 

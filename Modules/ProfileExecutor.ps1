@@ -68,7 +68,7 @@ function Invoke-Group {
   $groupPath = Join-Path $ProfilePath "$GroupName"
   $groupScriptPath = Join-Path $groupPath "Main_$GroupName.ps1"
   if (-Not (Test-Path $groupScriptPath)) {
-    Exit-WithError "[$($GroupName)] Punto de entrada del grupo no encontrado."
+    Exit-WithError "[$GroupName] Punto de entrada del grupo no encontrado."
   }
 
   . $groupScriptPath
@@ -90,24 +90,26 @@ function Invoke-Group {
   Show-Header1Line $GroupInfo.Name.Replace('_', '.').ToLower()
   Show-Info -Message "[$($GroupInfo.Name)] Ejecutando grupo..." -LogOnly
 
-  # If action is Test, show table header
-  if ($Global:Info.Action -eq "Test") {
-    Show-TableHeader
-  }
-  elseif ($Global:Info.Action -eq "Set") {
-    # Initialize backup file with empty JSON object
-    Save-Backup
-  }
-  elseif ($Global:Info.Action -eq "Restore") {
-    # Load the backup file if it exists
-    if (Test-Path $backupFilePath) {
-      $backup = ConvertTo-HashtableRecursive (Get-Content -Path $backupFilePath | ConvertFrom-Json)
+  switch ($Global:Info.Action) {
+    # If action is Test, show table header
+    "Test" {
+      Show-TableHeader
     }
-    else {
-      Show-Info -Message "[$($GroupInfo.Name)] Omitiendo por no existir archivo de respaldo." -LogOnly
-      $GroupInfo.Status = 'Skipped'
-      Save-GlobalInfo
-      return
+    "Set" {
+      # Initialize backup file with empty JSON object
+      Save-Backup
+    }
+    "Restore" {
+      # Load the backup file if it exists
+      if (Test-Path $backupFilePath) {
+        $backup = ConvertTo-HashtableRecursive (Get-Content -Path $backupFilePath | ConvertFrom-Json)
+      }
+      else {
+        Show-Info -Message "[$($GroupInfo.Name)] Omitiendo por no existir archivo de respaldo." -LogOnly
+        $GroupInfo.Status = 'Skipped'
+        Save-GlobalInfo
+        return
+      }
     }
   }
 
