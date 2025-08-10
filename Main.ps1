@@ -73,7 +73,7 @@ function Exit-WithError {
     )
     $Global:Info.Error = $Message
     # -1 means that Global:Info can't be saved
-    if (-not $Code -eq -1) {
+    if ($Code -ne -1) {
         Save-GlobalInfo
     }
     # If exited while executing a group, perform a cleanup
