@@ -309,7 +309,6 @@ function Show-Config {
         if ($diffLocalNotInGlobal[$prof][$group].Count -gt 0) {
           Write-Host ""
           $userResp = Read-Host "¿Deseas añadir las políticas no contempladas a la configuración global y habilitarlas? (S/N)"
-          Write-Host ""
           if ($userResp -match '^[SsYy]') {
             # Merge the local group with the global one
             $globalGroup = $Global:Config.ScriptsEnabled[$prof][$group]
@@ -321,7 +320,6 @@ function Show-Config {
         }
       }
     }
-    Write-Host ""
   }
   
   # Show the current global configuration
