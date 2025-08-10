@@ -264,6 +264,17 @@ function Show-Config {
           $diffGlobalNotInLocal[$prof][$group] += $script
         }
       }
+
+      # If diffLocalNotInGlobal[$prof][$group] and diffGlobalNotInLocal[$prof][$group] are empty, we remove the group from the dictionaries
+      if (-not $diffLocalNotInGlobal[$prof][$group].Count -and -not $diffGlobalNotInLocal[$prof][$group].Count) {
+        $diffLocalNotInGlobal[$prof].Remove($group)
+        $diffGlobalNotInLocal[$prof].Remove($group)
+      }
+    }
+    # If diffLocalNotInGlobal[$prof] and diffGlobalNotInLocal[$prof] are empty, we remove the group from the dictionaries
+    if (-not $diffLocalNotInGlobal[$prof].Count -and -not $diffGlobalNotInLocal[$prof].Count) {
+      $diffLocalNotInGlobal.Remove($prof)
+      $diffGlobalNotInLocal.Remove($prof)
     }
   }
 
@@ -291,6 +302,9 @@ function Show-Config {
   if ($foundDiscrepancies) {
     Show-Header1Line "Discrepancias detectadas en la configuración"
     foreach ($prof in $profilesToShow) {
+      if (-not $diffLocalNotInGlobal[$prof] -and -not $diffGlobalNotInLocal[$prof]) {
+        continue
+      }
       Write-Host "Perfil: $prof" -ForegroundColor Magenta
       # Join the keys of both dictionaries to get all groups with differences
       $groupsWithDiff = ($diffLocalNotInGlobal[$prof].Keys + $diffGlobalNotInLocal[$prof].Keys | Select-Object -Unique)
@@ -311,6 +325,9 @@ function Show-Config {
           $userResp = Read-Host "¿Deseas añadir las políticas no contempladas a la configuración global y habilitarlas? (S/N)"
           if ($userResp -match '^[SsYy]') {
             # Merge the local group with the global one
+            if (-not $Global:Config.ScriptsEnabled[$prof]) {
+              $Global:Config.ScriptsEnabled[$prof] = [ordered]@{}
+            }
             $globalGroup = $Global:Config.ScriptsEnabled[$prof][$group]
             $localGroup = $localConfig.ScriptsEnabled[$prof][$group]
             $mergedGroup = Merge-PolicyGroup -GlobalGroup $globalGroup -LocalGroup $localGroup
@@ -355,7 +372,7 @@ function Show-Config {
           $color = "Yellow"
         }
         # If the script is only in the local config, it is shown in blue
-        if ($diffLocalNotInGlobal[$prof].Contains($group) -and ($diffLocalNotInGlobal[$prof][$group] -contains $script)) {
+        if ($diffLocalNotInGlobal[$prof] -and $diffLocalNotInGlobal[$prof].Contains($group) -and $diffLocalNotInGlobal[$prof][$group] -and $diffLocalNotInGlobal[$prof][$group] -contains $script) {
           $color = "Blue"
         }
         Write-Host "    Script: $script" -ForegroundColor $color
