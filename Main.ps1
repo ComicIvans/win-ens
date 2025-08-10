@@ -44,6 +44,20 @@ function Exit-WithPause {
         [int] $Code = 0
     )
 
+    # Close all file handles
+    if ($Global:LogWriter) {
+        $Global:LogWriter.Dispose()
+    }
+    if ($Global:LogFile) {
+        $Global:LogFile.Close()
+    }
+    if ($Global:InfoWriter) {
+        $Global:InfoWriter.Dispose()
+    }
+    if ($Global:InfoFile) {
+        $Global:InfoFile.Close()
+    }
+
     Write-Host "`nPresiona Enter para salir..."
     Read-Host | Out-Null
     exit $Code
@@ -61,6 +75,27 @@ function Exit-WithError {
     # -1 means that Global:Info can't be saved
     if (-not $Code -eq -1) {
         Save-GlobalInfo
+    }
+    # If exited while executing a group, perform a cleanup
+    if ($GroupInfo -and $GroupInfo.Status -ne 'Completed') {
+        # Close backup file handles
+        if ($backupFileWriter) {
+            $backupFileWriter.Dispose()
+        }
+        if ($backupFile) {
+            $backupFile.Close()
+        }
+        # If $backup it's empty, try to remove the file
+        if ($backup -and $backup.Count -eq 0 -and $backupFilePath) {
+            Remove-Item -Path $backupFilePath -ErrorAction SilentlyContinue
+        }
+    }
+    # If exited while executing a profile, perform a cleanup
+    if ($ProfileInfo -and $ProfileInfo.Status -ne 'Completed') {
+        # If backup folder exists and it's empty, try to remove it
+        if ($Global:BackupFolderPath -and -not (Get-ChildItem -Path $Global:BackupFolderPath)) {
+            Remove-Item -Path $Global:BackupFolderPath -ErrorAction SilentlyContinue
+        }
     }
     Show-Error $Message
     Exit-WithPause $Code
@@ -88,26 +123,26 @@ catch {
     Exit-WithError -Message "No se ha podido crear el directorio de logs: $logsRoot. $_" -Code -1
 }
 
-# Create log file name and store its path in a global variable
-$logFileName = "$($Global:Info.Timestamp).log"
-$Global:LogFilePath = Join-Path $logsFolder $logFileName
-
+# Create log file and store it's file stream and writer in global variables
 try {
-    New-Item -Path $Global:LogFilePath -ItemType File -Force | Out-Null
+    $logFilePath = Join-Path $logsFolder "$($Global:Info.Timestamp).log"
+    $Global:LogFile = [System.IO.File]::Open($logFilePath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+    $Global:LogWriter = [System.IO.StreamWriter]::new($Global:LogFile, [System.Text.Encoding]::UTF8)
+    $Global:LogWriter.AutoFlush = $true
 }
 catch {
-    Exit-WithError -Message "No se ha podido crear el archivo de log: $Global:LogFilePath. $_" -Code -1
+    Exit-WithError -Message "No se ha podido crear el archivo de log: $logFilePath. $_" -Code -1
 }
 
-# Create info file name and store its path in a global variable
-$infoFileName = "$($Global:Info.Timestamp).json"
-$Global:InfoFilePath = Join-Path $logsFolder $infoFileName
-
+# Create info file and store it's file stream and writer in global variables
 try {
-    New-Item -Path $Global:InfoFilePath -ItemType File -Force | Out-Null
+    $infoFilePath = Join-Path $logsFolder "$($Global:Info.Timestamp).json"
+    $Global:InfoFile = [System.IO.File]::Open($infoFilePath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+    $Global:InfoWriter = [System.IO.StreamWriter]::new($Global:InfoFile, [System.Text.Encoding]::UTF8)
+    $Global:InfoWriter.AutoFlush = $true
 }
 catch {
-    Exit-WithError -Message "No se ha podido crear el archivo de información: $Global:InfoFilePath. $_" -Code -1
+    Exit-WithError -Message "No se ha podido crear el archivo de información: $infoFilePath. $_" -Code -1
 }
 
 # Backup directories
@@ -122,13 +157,10 @@ catch {
     Exit-WithError -Message "No se ha podido crear el directorio de copias de seguridad: $backupsRoot. $_"
 }
 
-Write-Host ""
 Show-Header3Lines "SCRIPT PARA LA ADECUACIÓN AL ENS"
-Write-Host ""
 
 # Initialize configuration
 Initialize-Configuration
-Write-Host ""
 
 # Functions to show the menu
 function Show-ActionMenu {

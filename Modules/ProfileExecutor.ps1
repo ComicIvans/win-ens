@@ -12,7 +12,7 @@ function Invoke-Profile {
     [string]$ProfileName
   )
 
-  # Load the profile's info objet
+  # Load the profile's info object
   $profilePath = Join-Path $PSScriptRoot "$ProfileName"
   $profileScriptPath = Join-Path $profilePath "Main_$ProfileName.ps1"
   if (-Not (Test-Path $profileScriptPath)) {
@@ -25,6 +25,14 @@ function Invoke-Profile {
   Show-Info -Message "[$($ProfileInfo.Name)] Validando la estructura del objeto de información del perfil..." -LogOnly
   if (-not (Test-ObjectStructure -Template $ProfileInfoTemplate -Target $ProfileInfo -AllowAdditionalProperties)) {
     Exit-WithError "[$ProfileName] La estructura del objeto de información del perfil no es válida, para más información, consulta los registros."
+  }
+
+  # Check if profile is enabled
+  if (-not $Global:Config.ScriptsEnabled[$ProfileName]) {
+    $ProfileInfo.Status = 'Skipped'
+    Show-Info -Message "[$($ProfileInfo.Name)] Perfil no habilitado en la configuración. Saltando ejecución."
+    Save-GlobalInfo
+    return
   }
 
   $Global:Info.Profile = $ProfileInfo
@@ -46,6 +54,11 @@ function Invoke-Profile {
       ($ProfileInfo.Groups | Where-Object { $_.Name -eq $folder.BaseName } | Select-Object -First 1).Status = 'Aborted'
       Exit-WithError "[$($ProfileInfo.Name)] Ha ocurrido un problema ejecutando el grupo '$($folder.BaseName)': $_"
     }
+  }
+
+  # If backup folder exists and it's empty, remove it
+  if ($Global:BackupFolderPath -and -not (Get-ChildItem -Path $Global:BackupFolderPath)) {
+    Remove-Item -Path $Global:BackupFolderPath -ErrorAction SilentlyContinue
   }
 
   # Save the profile status as completed
@@ -79,6 +92,15 @@ function Invoke-Group {
     Exit-WithError "[$GroupName] La estructura del objeto de información del grupo no es válida, para más información, consulta los registros."
   }
 
+  # Check if group is enabled
+  if (-not $Global:Config.ScriptsEnabled[$ProfileInfo.Name][$GroupInfo.Name]) {
+    $GroupInfo.Status = 'Skipped'
+    Write-Host ""
+    Show-Info -Message "[$($GroupInfo.Name)] Grupo no habilitado en la configuración. Saltando ejecución."
+    Save-GlobalInfo
+    return
+  }
+
   $ProfileInfo.Groups += $GroupInfo
   $GroupInfo.Status = 'Running'
   Save-GlobalInfo
@@ -97,6 +119,14 @@ function Invoke-Group {
     }
     "Set" {
       # Initialize backup file with empty JSON object
+      try {
+        $backupFile = [System.IO.File]::Open($backupFilePath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+        $backupFileWriter = [System.IO.StreamWriter]::new($backupFile, [System.Text.Encoding]::UTF8)
+        $backupFileWriter.AutoFlush = $true
+      }
+      catch {
+        Exit-WithError -Message "No se ha podido crear el archivo de respaldo: $backupFilePath. $_" -Code -1
+      }
       Save-Backup
     }
     "Restore" {
@@ -195,6 +225,18 @@ function Invoke-Group {
       $PolicyInfo.Status = 'Aborted'
       Exit-WithError "[$($GroupInfo.Name)] Ha ocurrido un problema cargando o ejecutando la política '$($PolicyInfo.Name)': $_"
     }
+  }
+
+  # Close backup file handles
+  if ($backupFileWriter) {
+    $backupFileWriter.Dispose()
+  }
+  if ($backupFile) {
+    $backupFile.Close()
+  }
+  # If $backup it's empty, remove the file
+  if ($backup.Count -eq 0 -and $backupFilePath) {
+    Remove-Item -Path $backupFilePath -ErrorAction SilentlyContinue
   }
 
   # Save the group state

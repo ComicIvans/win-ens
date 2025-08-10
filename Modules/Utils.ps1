@@ -51,13 +51,13 @@ function ConvertTo-HashtableRecursive {
 # Function to save the Global:Info object to a JSON file
 function Save-GlobalInfo {
   try {
-    if ($Global:InfoFilePath -and $Global:Info) {
-      $jsonData = $Global:Info | ConvertTo-Json -Depth 10
-      Set-Content -Path $Global:InfoFilePath -Value $jsonData -Encoding UTF8 -Force
-    }
+    $jsonData = $Global:Info | ConvertTo-Json -Depth 10
+    # Remove previous content and write the new info
+    $Global:InfoFile.SetLength(0)
+    $Global:InfoWriter.WriteLine($jsonData)
   }
   catch {
-    Exit-WithError -Message "Error al guardar la información de ejecución en '$Global:InfoFilePath'. $_" -Code -1
+    Exit-WithError -Message "Error al guardar la información de ejecución en '$($Global:InfoFile.Name)'. $_" -Code -1
   }
 }
 
@@ -66,7 +66,9 @@ function Save-Backup {
   # Convert the backup to a JSON string and save it to the file
   try {
     $jsonString = $backup | ConvertTo-Json -Depth 10
-    $jsonString | Out-File -FilePath $backupFilePath -Encoding UTF8 -Force
+    # Remove previous content and write the new backup
+    $backupFile.SetLength(0)
+    $backupFileWriter.WriteLine($jsonString)
     Show-Info -Message "[$($PolicyInfo.Name)] Archivo de respaldo $($GroupInfo.Name).json guardado." -LogOnly
   }
   catch {

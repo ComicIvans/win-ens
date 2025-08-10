@@ -34,6 +34,7 @@ function Show-Header1Line {
     $textForm = " $Text "
     $textLength = $textForm.Length
 
+    Write-Host ""
     if ($textLength -ge $maxLine) {
         Write-Host $textForm.Substring(0, $maxLine) -ForegroundColor Cyan
     }
@@ -60,11 +61,9 @@ function Show-Info {
     if (-not $LogOnly) {
         Write-Host ("[INFO] {0}" -f $Message) -ForegroundColor DarkGray
     }
-    if ($Global:LogFilePath) {
-        $timestamp = (Get-Date).ToString("HH:mm:ss")
-        $logLine = "[$timestamp] [INFO] $Message"
-        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8 -Force
-    }
+    $timestamp = (Get-Date).ToString("HH:mm:ss")
+    $logLine = "[$timestamp] [INFO] $Message"
+    $Global:LogWriter.WriteLine($logLine)
 }
 
 # Log and optionally print a warning message
@@ -78,11 +77,9 @@ function Show-Warning {
     if (-not $LogOnly) {
         Write-Host ("[WARNING] {0}" -f $Message) -ForegroundColor Yellow
     }
-    if ($Global:LogFilePath) {
-        $timestamp = (Get-Date).ToString("HH:mm:ss")
-        $logLine = "[$timestamp] [WARNING] $Message"
-        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8 -Force
-    }
+    $timestamp = (Get-Date).ToString("HH:mm:ss")
+    $logLine = "[$timestamp] [WARNING] $Message"
+    $Global:LogWriter.WriteLine($logLine)
 }
 
 # Log and optionally print an error message
@@ -96,11 +93,9 @@ function Show-Error {
     if (-not $LogOnly) {
         Write-Host ("[ERROR] {0}" -f $Message) -ForegroundColor Red
     }
-    if ($Global:LogFilePath) {
-        $timestamp = (Get-Date).ToString("HH:mm:ss")
-        $logLine = "[$timestamp] [ERROR] $Message"
-        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8 -Force
-    }
+    $timestamp = (Get-Date).ToString("HH:mm:ss")
+    $logLine = "[$timestamp] [ERROR] $Message"
+    $Global:LogWriter.WriteLine($logLine)
 }
 
 # Log and optionally print a success message
@@ -114,11 +109,9 @@ function Show-Success {
     if (-not $LogOnly) {
         Write-Host ("[OK] {0}" -f $Message) -ForegroundColor Green
     }
-    if ($Global:LogFilePath) {
-        $timestamp = (Get-Date).ToString("HH:mm:ss")
-        $logLine = "[$timestamp] [OK] $Message"
-        Add-Content -Path $Global:LogFilePath -Value $logLine -Encoding UTF8 -Force
-    }
+    $timestamp = (Get-Date).ToString("HH:mm:ss")
+    $logLine = "[$timestamp] [OK] $Message"
+    $Global:LogWriter.WriteLine($logLine)
 }
 
 # Print a table header for displaying policy testing information
