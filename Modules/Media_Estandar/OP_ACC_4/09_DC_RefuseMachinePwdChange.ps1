@@ -21,5 +21,5 @@ $PolicyMeta = [PSCustomObject]@{
   ExpectedValue    = 0
   ValueKind        = 'DWord'
   ComparisonMethod = 'AllowedValues'
-  AllowedValues    = @(1)
+  AllowedValues    = @(0)
 }
