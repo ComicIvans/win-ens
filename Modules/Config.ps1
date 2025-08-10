@@ -185,7 +185,6 @@ function Show-Config {
       Write-Host ("{0} " -f $desc) -ForegroundColor Gray
       Write-Host (" -> Valor actual: ") -NoNewline -ForegroundColor Gray
       Write-Host ("{0}" -f $value) -ForegroundColor Blue
-      Write-Host ""
     }
   }
 
@@ -205,7 +204,6 @@ function Show-Config {
   }
   Write-Host ("{0}) Ninguno" -f $index) -ForegroundColor DarkCyan
   $choiceNumber = Read-Host -Prompt "Introduce el número correspondiente"
-  Write-Host ""
       
   if ($choiceNumber -eq 0) {
     $profilesToShow = $profiles
@@ -405,12 +403,19 @@ function Get-ScriptsEnabledSubset {
 # Function to merge a policy group from the local configuration into the global one, keeping the global group's values and adding local group's new policies
 function Merge-PolicyGroup {
   param(
-    [Parameter(Mandatory)]
+    [Parameter()]
     [hashtable]$GlobalGroup,
-    [Parameter(Mandatory)]
+    [Parameter()]
     [hashtable]$LocalGroup
   )
-  
+
+  if ($null -eq $GlobalGroup) {
+    $GlobalGroup = [ordered]@{}
+  }
+  if ($null -eq $LocalGroup) {
+    $LocalGroup = [ordered]@{}
+  }
+
   # Get all keys from both groups, ensuring uniqueness
   $allKeys = ($GlobalGroup.Keys + $LocalGroup.Keys | Select-Object -Unique)
 
