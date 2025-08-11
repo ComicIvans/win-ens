@@ -185,34 +185,36 @@ function Invoke-Group {
       Save-GlobalInfo
       Show-Info -Message "[$($PolicyInfo.Name)] Ejecutando política..." -LogOnly
 
-      switch ($PolicyMeta.Type) {
-        "Registry" {
-          Invoke-RegistryPolicy -PolicyInfo $PolicyInfo -PolicyMeta $PolicyMeta -Backup $backup
-        }
-        "Custom" {
-          $functionsRequired = @(
-            "Test-Policy",
-            "Set-Policy",
-            "Restore-Policy"
-          )
+      if ($PolicyMeta.Type -eq "Custom") {
+        $functionsRequired = @(
+          "Test-Policy",
+          "Set-Policy",
+          "Restore-Policy"
+        )
 
-          # Check if the required functions are defined
-          foreach ($functionName in $functionsRequired) {
-            if (-not (Get-Command -Name $functionName -ErrorAction SilentlyContinue)) {
-              Exit-WithError "[$($PolicyInfo.Name)] La función '$functionName' no está definida en la política."
-            }
-          }
-
-          & "$($Global:Info.Action)-Policy" -PolicyInfo $PolicyInfo -PolicyMeta $PolicyMeta -Backup $backup
-
-          # Remove the functions after execution to avoid conflicts
-          foreach ($functionName in $functionsRequired) {
-            if (Test-Path Function:\$functionName) {
-              Remove-Item Function:\$functionName
-            }
+        # Check if the required functions are defined
+        foreach ($functionName in $functionsRequired) {
+          if (-not (Get-Command -Name $functionName -ErrorAction SilentlyContinue)) {
+            Exit-WithError "[$($PolicyInfo.Name)] La función '$functionName' no está definida en la política."
           }
         }
-        Default {
+
+        & "$($Global:Info.Action)-Policy" -PolicyInfo $PolicyInfo -PolicyMeta $PolicyMeta -Backup $backup
+
+        # Remove the functions after execution to avoid conflicts
+        foreach ($functionName in $functionsRequired) {
+          if (Test-Path Function:\$functionName) {
+            Remove-Item Function:\$functionName
+          }
+        }
+      }
+      else {
+        # Look for policy-specific invoke function
+        $invokeFunction = "Invoke-$($PolicyMeta.Type)Policy"
+        if (Get-Command -Name $invokeFunction -ErrorAction SilentlyContinue) {
+          & $invokeFunction -PolicyInfo $PolicyInfo -PolicyMeta $PolicyMeta -Backup $backup
+        }
+        else {
           Exit-WithError "[$($PolicyInfo.Name)] Tipo de política '$($PolicyMeta.Type)' no soportado."
         }
       }
