@@ -108,7 +108,7 @@ function Invoke-Group {
 
   # Backup file and object for this group's policies
   $backupFilePath = if ($Global:BackupFolderPath) { Join-Path $Global:BackupFolderPath "$($GroupName).json" } else { $null }
-  $backup = @{}
+  $backup = [ordered]@{}
 
   Show-Header1Line $GroupName.Replace('_', '.').ToLower()
   Show-Info -Message "[$($GroupName)] Ejecutando grupo..." -NoConsole
