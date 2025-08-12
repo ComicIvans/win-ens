@@ -333,7 +333,7 @@ function Show-Config {
   # Show the current global configuration
   Show-Header1Line "Estado de las políticas actuales"
 
-  Write-Host "En verde se muestran los scripts habilitados, en rojo los deshabilitados, en azul los nuevos que no estaban contemplados en la configuración, y en amarillo los que se encontraban en la configuración pero no están presentes." -ForegroundColor DarkGray
+  Write-Host "En verde se muestran las políticas habilitadas, en rojo las deshabilitadas, en azul las nuevas que no estaban contempladas en la configuración, y en amarillo las que se encontraban en la configuración pero su archivo no está presente." -ForegroundColor DarkGray
   Write-Host ""
 
   foreach ($prof in $profilesToShow) {
@@ -366,7 +366,7 @@ function Show-Config {
         if ($diffLocalNotInGlobal[$prof] -and $diffLocalNotInGlobal[$prof].Contains($group) -and $diffLocalNotInGlobal[$prof][$group] -and $diffLocalNotInGlobal[$prof][$group] -contains $script) {
           $color = "Blue"
         }
-        Write-Host "    Script: $script" -ForegroundColor $color
+        Write-Host "    Política: $script" -ForegroundColor $color
       }
     }
     Write-Host ""
