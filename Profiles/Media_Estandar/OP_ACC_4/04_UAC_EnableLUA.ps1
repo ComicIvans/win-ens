@@ -4,13 +4,6 @@
 # aprobación de administrador
 ###############################################################################
 
-# Object with policy metadata
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$PolicyInfo = [PSCustomObject]@{
-    Name   = '04_UAC_EnableLUA'
-    Status = 'Pending'
-}
-
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{

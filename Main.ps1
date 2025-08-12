@@ -7,15 +7,15 @@
 [Console]::InputEncoding = [Text.Encoding]::UTF8
 
 # Import utility functions
-Import-Module "$PSScriptRoot/Modules/Utils.ps1"
+Import-Module "$PSScriptRoot\Modules\Utils.ps1"
 # Import PrintsAndLogs, where print functions are defined
-Import-Module "$PSScriptRoot/Modules/PrintsAndLogs.ps1"
+Import-Module "$PSScriptRoot\Modules\PrintsAndLogs.ps1"
 # Import configuration functions
-Import-Module "$PSScriptRoot/Modules/Config.ps1"
+Import-Module "$PSScriptRoot\Modules\Config.ps1"
 # Import profile executor
-Import-Module "$PSScriptRoot/Modules/ProfileExecutor.ps1"
+Import-Module "$PSScriptRoot\Modules\ProfileExecutor.ps1"
 # Import templates
-Import-Module "$PSScriptRoot/Modules/Templates.ps1"
+Import-Module "$PSScriptRoot\Modules\Templates.ps1"
 
 # Privilege check
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -58,6 +58,9 @@ function Exit-WithPause {
         $Global:InfoFile.Close()
     }
 
+    # Remove temp folder and its content
+    Remove-Item -Path $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
+
     Write-Host "`nPresiona Enter para salir..."
     Read-Host | Out-Null
     exit $Code
@@ -71,13 +74,27 @@ function Exit-WithError {
         [Parameter()]
         [int]$Code = 1
     )
-    $Global:Info.Error = $Message
-    # -1 means that Global:Info can't be saved
-    if ($Code -ne -1) {
+    # -1 means that Global:Info/logs couldn't/shouldn't be saved
+    if ($Code -eq -1) {
+        Show-Error $Message -NoLog
+    }
+    else {
+        $Global:Info.Error = $Message
         Save-GlobalInfo
+        Show-Error $Message
     }
     # If exited while executing a group, perform a cleanup
     if ($GroupInfo -and $GroupInfo.Status -ne 'Completed') {
+        # Close temp file handlers
+        if ($tempFileReader) {
+            $tempFileReader.Dispose()
+        }
+        if ($tempFileWriter) {
+            $tempFileWriter.Dispose()
+        }
+        if ($tempFile) {
+            $tempFile.Close()
+        }
         # Close backup file handles
         if ($backupFileWriter) {
             $backupFileWriter.Dispose()
@@ -97,7 +114,6 @@ function Exit-WithError {
             Remove-Item -Path $Global:BackupFolderPath -ErrorAction SilentlyContinue
         }
     }
-    Show-Error $Message
     Exit-WithPause $Code
 }
 
@@ -111,8 +127,13 @@ function Exit-WithSuccess {
     Exit-WithPause 0
 }
 
+# Check for profiles' directory
+if (-not (Test-Path "$PSScriptRoot\Profiles")) {
+    Exit-WithError "No se ha encontrado el directorio de perfiles: $PSScriptRoot\Profiles" -Code -1
+}
+
 # Log directories
-$logsRoot = Join-Path $PSScriptRoot "./Logs"
+$logsRoot = Join-Path $PSScriptRoot ".\Logs"
 $logsFolder = Join-Path $logsRoot $Global:Info.MachineId
 
 try {
@@ -146,7 +167,7 @@ catch {
 }
 
 # Backup directories
-$backupsRoot = Join-Path $PSScriptRoot "./Backups"
+$backupsRoot = Join-Path $PSScriptRoot ".\Backups"
 $backupsFolder = Join-Path $backupsRoot $Global:Info.MachineId
 
 try {
@@ -155,6 +176,15 @@ try {
 }
 catch {
     Exit-WithError -Message "No se ha podido crear el directorio de copias de seguridad: $backupsRoot. $_"
+}
+
+# Create a Temp folder
+try {
+    $tempFolder = Join-Path $PSScriptRoot ".\Temp"
+    if (-not (Test-Path $tempFolder)) { New-Item -Path $tempFolder -ItemType Directory | Out-Null }
+}
+catch {
+    Exit-WithError -Message "No se ha podido crear el directorio temporal: $tempFolder. $_"
 }
 
 Show-Header3Lines "SCRIPT PARA LA ADECUACIÓN AL ENS"
@@ -256,7 +286,7 @@ function Restore-Backup {
         $profileName = "$category`_$info"
 
         $Global:BackupFolderPath = $selectedBackup.FullName
-        Show-Info -Message "Restaurando copia de seguridad: $($Global:BackupFolderPath)" -LogOnly
+        Show-Info -Message "Restaurando copia de seguridad: $($Global:BackupFolderPath)" -NoConsole
 
         Invoke-Profile -ProfileName $profileName
 

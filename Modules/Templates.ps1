@@ -10,33 +10,34 @@ $ConfigTemplate = [PSCustomObject]@{
   ScriptsEnabled             = [ordered]@{}
 }
 
-# Template for ProfileInfo
+# Template for CustomPolicyMeta
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$ProfileInfoTemplate = [PSCustomObject]@{
-  Name   = ""
-  Status = ""
-  Groups = @()
+$CustomPolicyMetaTemplate = [PSCustomObject]@{
+  Name        = ''
+  Description = ''
+  Type        = 'Custom'
 }
 
-# Template for GroupInfo
+# Template for RegistryPolicyMeta
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$GroupInfoTemplate = [PSCustomObject]@{
-  Name     = ""
-  Status   = ""
-  Policies = @()
+$RegistryPolicyMetaTemplate = [PSCustomObject]@{
+  Name             = ''
+  Description      = ''
+  Type             = 'Registry'
+  Path             = ''
+  Property         = ''
+  ExpectedValue    = $null
+  ValueKind        = ''
+  ComparisonMethod = ''
 }
 
-# Template for PolicyInfo
+# Template for SecurityPolicyMeta
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$PolicyInfoTemplate = [PSCustomObject]@{
-  Name   = ""
-  Status = ""
-}
-
-# Template for PolicyMeta
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$PolicyMetaTemplate = [PSCustomObject]@{
-  Name        = ""
-  Description = ""
-  Type        = ""
+$SecurityPolicyMetaTemplate = [PSCustomObject]@{
+  Name             = ''
+  Description      = ''
+  Type             = 'Security'
+  Property         = ''
+  ExpectedValue    = $null
+  ComparisonMethod = ''
 }

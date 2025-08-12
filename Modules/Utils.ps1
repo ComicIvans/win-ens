@@ -69,7 +69,7 @@ function Save-Backup {
     # Remove previous content and write the new backup
     $backupFile.SetLength(0)
     $backupFileWriter.WriteLine($jsonString)
-    Show-Info -Message "[$($PolicyInfo.Name)] Archivo de respaldo $($GroupInfo.Name).json guardado." -LogOnly
+    Show-Info -Message "[$($PolicyInfo.Name)] Archivo de respaldo $($GroupInfo.Name).json guardado." -NoConsole
   }
   catch {
     Exit-WithError "[$($PolicyInfo.Name)] No se ha podido guardar el archivo de respaldo $($GroupInfo.Name).json. $_"
@@ -105,21 +105,21 @@ Function Test-ObjectStructure {
 
   # Check for properties in the template that are not found in the target
   if (@($TemplateProps.Name).Where({ $_ -notin $TargetProps.Name }).Count -gt 0) {
-    Show-Warning "Las siguientes propiedades no se encontraron: $(@($TemplateProps.Name).Where({ $_ -notin $TargetProps.Name }) -join ', ')" -LogOnly
+    Show-Warning "Las siguientes propiedades no se encontraron: $(@($TemplateProps.Name).Where({ $_ -notin $TargetProps.Name }) -join ', ')" -NoConsole
     return $false
   }
 
   # Check for properties in the target that are not found in the template
   if (-not $AllowAdditionalProperties -and @($TargetProps.Name).Where({ $_ -notin $TemplateProps.Name }).count -gt 0) {
-    Show-Warning "Se encontraron las siguientes propiedades desconocidas: $(@($TargetProps.Name).Where({ $_ -notin $TemplateProps.Name }) -join ', ')" -LogOnly
+    Show-Warning "Se encontraron las siguientes propiedades desconocidas: $(@($TargetProps.Name).Where({ $_ -notin $TemplateProps.Name }) -join ', ')" -NoConsole
     return $false
   }
 
-  # For all properties shared between the objects, check if their values have the same type
-  $sharedProps = @($TemplateProps.Name).Where({ $_ -in $TargetProps.Name -and $_ -notin $SkipProperties })
+  # For all non-null properties shared between the objects, check if their values have the same type
+  $sharedProps = @($TemplateProps.Name).Where({ $_ -in $TargetProps.Name -and $null -ne $Template.$_ })
   foreach ($sharedProp in $sharedProps) {
     if ($Template.$sharedProp.GetType() -ne $Target.$sharedProp.GetType()) {
-      Show-Warning "La propiedad '$sharedProp' tiene un tipo '$($Target.$sharedProp.GetType())' en lugar de '$($Template.$sharedProp.GetType())'." -LogOnly
+      Show-Warning "La propiedad '$sharedProp' tiene un tipo '$($Target.$sharedProp.GetType())' en lugar de '$($Template.$sharedProp.GetType())'." -NoConsole
       $anyFail = $true
     }
   }
@@ -128,10 +128,11 @@ Function Test-ObjectStructure {
     return $false
   }
 
+  $sharedProps = $sharedProps.Where({ $_ -notin $SkipProperties })
   # For any properties that are PSObjects, do a recursive call to compare their properties
   foreach ($sharedProp in $sharedProps) {
     if ($Template.$sharedProp.GetType() -eq [System.Management.Automation.PSCustomObject]) {
-      Show-Info "Comparando la propiedad '$sharedProp'..." -LogOnly
+      Show-Info "Comparando la propiedad '$sharedProp'..." -NoConsole
       if (-not (Test-PSObjectStructure -template $Template.$sharedProp -target $Target.$sharedProp)) {
         $anyFail = $true
       }

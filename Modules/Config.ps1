@@ -14,14 +14,14 @@ function Initialize-Configuration {
   )
 
   # Build the path to the configuration file relative to the project root
-  $configFilePath = Join-Path $PSScriptRoot "../$ConfigFile"
+  $configFilePath = Join-Path $PSScriptRoot "..\$ConfigFile"
   $configIsNew = $false
 
   # A local version is created to save or compare with the loaded one
   $localConfig = Get-LocalConfig -PrintAndLog
 
   if (Test-Path $configFilePath) {
-    Show-Info "Cargando archivo de configuración..." -LogOnly
+    Show-Info "Cargando archivo de configuración..." -NoConsole
     try {
       $loadedFile = Get-Content -Path $configFilePath -Raw | ConvertFrom-Json
       $loadedFile = ConvertTo-HashtableRecursive -Object $loadedFile -Ordered
@@ -35,7 +35,7 @@ function Initialize-Configuration {
           Show-Warning "La clave '$key' del archivo de configuración es desconocida, se eliminará."
         }
       }
-      Show-Info "Comprobando estructura del archivo de configuración..." -LogOnly
+      Show-Info "Comprobando estructura del archivo de configuración..." -NoConsole
       if (-not (Test-ObjectStructure -Template $ConfigTemplate -Target $Global:Config -SkipProperties @("ScriptsEnabled"))) {
         Exit-WithError "El archivo de configuración '$ConfigFile' no tiene la estructura correcta, para más información, consulta los registros."
       }
@@ -87,19 +87,14 @@ function Get-LocalConfig {
     EnforceMinimumPolicyValues = $false
     ScriptsEnabled             = [ordered]@{}
   }
-  
-  $profDirs = Get-ChildItem -Path $PSScriptRoot -Directory -ErrorAction SilentlyContinue
+
+  $profDirPath = (Resolve-Path -Path (Join-Path $PSScriptRoot "..\Profiles")).Path
+  $profDirs = Get-ChildItem -Path $profDirPath -Directory -ErrorAction SilentlyContinue
   if ($PrintAndLog -and -not $profDirs) {
-    Show-Warning "No se han encontrado carpetas de perfiles en el directorio '$PSScriptRoot', por lo que no será posible ejecutar ninguna acción."
+    Show-Warning "No se han encontrado carpetas de perfiles en el directorio '$profDirPath', por lo que no será posible ejecutar ninguna acción."
   }
   
   foreach ($profDir in $profDirs) {
-    $expectedProfileMain = "Main_{0}.ps1" -f $profDir.Name
-    $profileMainPath = Join-Path $profDir.FullName $expectedProfileMain
-    if ($PrintAndLog -and -not (Test-Path $profileMainPath)) {
-      Show-Warning "La carpeta de perfil '$($profDir.Name)' no tiene el archivo '$expectedProfileMain', por lo que no será posible ejecutar dicho perfil."
-    }
-
     # If the Scripts key for the profile does not exist, we create it
     if (-not $localConfig.ScriptsEnabled.Contains($profDir.Name)) {
       $localConfig.ScriptsEnabled[$profDir.Name] = [ordered]@{}
@@ -112,20 +107,16 @@ function Get-LocalConfig {
     }
 
     foreach ($groupDir in $groupDirs) {
-      $expectedGroupMain = "Main_{0}.ps1" -f $groupDir.Name
-      $groupMainPath = Join-Path $groupDir.FullName $expectedGroupMain
-      if ($PrintAndLog -and -not (Test-Path $groupMainPath)) {
-        Show-Warning "La carpeta de grupo '$($groupDir.Name)' dentro del perfil '$($profDir.Name)' no tiene el archivo '$expectedGroupMain', por lo que no será posible ejecutar dicho grupo."
-      }
-
       # If the group key does not exist in the profile, we create it
       if (-not $localConfig.ScriptsEnabled[$profDir.Name].Contains($groupDir.Name)) {
         $localConfig.ScriptsEnabled[$profDir.Name][$groupDir.Name] = [ordered]@{}
       }
 
       # Policies: any file that is not the main one for that group
-      $policyFiles = Get-ChildItem -Path $groupDir.FullName -File -Recurse -ErrorAction SilentlyContinue |
-      Where-Object { $_.Name -ne $expectedGroupMain }
+      $policyFiles = Get-ChildItem -Path $groupDir.FullName -File -Recurse -ErrorAction SilentlyContinue
+      if ($PrintAndLog -and -not $policyFiles) {
+        Show-Warning "No se han encontrado archivos de políticas en el directorio '$($groupDir.FullName)', por lo que no será posible ejecutar dicho grupo."
+      }
 
       foreach ($file in $policyFiles) {
         $policyName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
@@ -466,13 +457,13 @@ function Save-Config {
     [string] $ConfigFile = "config.json"
   )
 
-  $configFilePath = Join-Path $PSScriptRoot "../$ConfigFile"
+  $configFilePath = Join-Path $PSScriptRoot "..\$ConfigFile"
 
   # Convert the global configuration to a JSON string and save it to the file
   try {
     $jsonString = $Global:Config | ConvertTo-Json -Depth 10
     $jsonString | Out-File -FilePath $configFilePath -Encoding UTF8
-    Show-Info -Message "Archivo de configuración $ConfigFile guardado." -LogOnly
+    Show-Info -Message "Archivo de configuración $ConfigFile guardado." -NoConsole
   }
   catch {
     Exit-WithError "No se ha podido guardar el archivo de configuración. $_"

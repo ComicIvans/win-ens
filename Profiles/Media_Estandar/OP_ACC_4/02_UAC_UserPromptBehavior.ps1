@@ -4,13 +4,6 @@
 # para los usuarios estándar
 ###############################################################################
 
-# Object with policy metadata
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$PolicyInfo = [PSCustomObject]@{
-    Name   = '02_UAC_UserPromptBehavior'
-    Status = 'Pending'
-}
-
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{

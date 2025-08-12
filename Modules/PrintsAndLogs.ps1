@@ -50,68 +50,84 @@ function Show-Header1Line {
     Write-Host ""
 }
 
-# Log and optionally print an informational message
+# Log and/or print an informational message
 function Show-Info {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
         [Parameter()]
-        [switch]$LogOnly
+        [switch]$NoConsole,
+        [Parameter()]
+        [switch]$NoLog
     )
-    if (-not $LogOnly) {
+    if (-not $NoConsole) {
         Write-Host ("[INFO] {0}" -f $Message) -ForegroundColor DarkGray
     }
-    $timestamp = (Get-Date).ToString("HH:mm:ss")
-    $logLine = "[$timestamp] [INFO] $Message"
-    $Global:LogWriter.WriteLine($logLine)
+    if (-not $NoLog) {
+        $timestamp = (Get-Date).ToString("HH:mm:ss")
+        $logLine = "[$timestamp] [INFO] $Message"
+        $Global:LogWriter.WriteLine($logLine)
+    }
 }
 
-# Log and optionally print a warning message
+# Log and/or print a warning message
 function Show-Warning {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
         [Parameter()]
-        [switch]$LogOnly
+        [switch]$NoConsole,
+        [Parameter()]
+        [switch]$NoLog
     )
-    if (-not $LogOnly) {
+    if (-not $NoConsole) {
         Write-Host ("[WARNING] {0}" -f $Message) -ForegroundColor Yellow
     }
-    $timestamp = (Get-Date).ToString("HH:mm:ss")
-    $logLine = "[$timestamp] [WARNING] $Message"
-    $Global:LogWriter.WriteLine($logLine)
+    if (-not $NoLog) {
+        $timestamp = (Get-Date).ToString("HH:mm:ss")
+        $logLine = "[$timestamp] [WARNING] $Message"
+        $Global:LogWriter.WriteLine($logLine)
+    }
 }
 
-# Log and optionally print an error message
+# Log and/or print an error message
 function Show-Error {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
         [Parameter()]
-        [switch]$LogOnly
+        [switch]$NoConsole,
+        [Parameter()]
+        [switch]$NoLog
     )
-    if (-not $LogOnly) {
+    if (-not $NoConsole) {
         Write-Host ("[ERROR] {0}" -f $Message) -ForegroundColor Red
     }
-    $timestamp = (Get-Date).ToString("HH:mm:ss")
-    $logLine = "[$timestamp] [ERROR] $Message"
-    $Global:LogWriter.WriteLine($logLine)
+    if (-not $NoLog) {
+        $timestamp = (Get-Date).ToString("HH:mm:ss")
+        $logLine = "[$timestamp] [ERROR] $Message"
+        $Global:LogWriter.WriteLine($logLine)
+    }
 }
 
-# Log and optionally print a success message
+# Log and/or print a success message
 function Show-Success {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
         [Parameter()]
-        [switch]$LogOnly
+        [switch]$NoConsole,
+        [Parameter()]
+        [switch]$NoLog
     )
-    if (-not $LogOnly) {
+    if (-not $NoConsole) {
         Write-Host ("[OK] {0}" -f $Message) -ForegroundColor Green
     }
-    $timestamp = (Get-Date).ToString("HH:mm:ss")
-    $logLine = "[$timestamp] [OK] $Message"
-    $Global:LogWriter.WriteLine($logLine)
+    if (-not $NoLog) {
+        $timestamp = (Get-Date).ToString("HH:mm:ss")
+        $logLine = "[$timestamp] [OK] $Message"
+        $Global:LogWriter.WriteLine($logLine)
+    }
 }
 
 # Print a table header for displaying policy testing information

@@ -4,13 +4,6 @@
 # para los administradores en Modo de aprobación de administrador
 ###############################################################################
 
-# Object with policy's execution information
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$PolicyInfo = [PSCustomObject]@{
-    Name   = '01_UAC_AdminPromptBehavior'
-    Status = 'Pending'
-}
-
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{

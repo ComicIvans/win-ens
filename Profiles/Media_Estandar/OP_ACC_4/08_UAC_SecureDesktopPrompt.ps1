@@ -4,13 +4,6 @@
 # confirmación de elevación
 ###############################################################################
 
-# Object with policy's execution information
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$PolicyInfo = [PSCustomObject]@{
-  Name   = '08_UAC_SecureDesktopPrompt'
-  Status = 'Pending'
-}
-
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{

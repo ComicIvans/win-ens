@@ -4,13 +4,6 @@
 # cuenta predefinida Administrador
 ###############################################################################
 
-# Object with policy's execution information
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
-$PolicyInfo = [PSCustomObject]@{
-  Name   = '07_UAC_AdminApprovalModeBuiltinAdmin'
-  Status = 'Pending'
-}
-
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
