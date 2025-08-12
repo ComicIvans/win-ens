@@ -85,16 +85,6 @@ function Exit-WithError {
     }
     # If exited while executing a group, perform a cleanup
     if ($GroupInfo -and $GroupInfo.Status -ne 'Completed') {
-        # Close temp file handlers
-        if ($tempFileReader) {
-            $tempFileReader.Dispose()
-        }
-        if ($tempFileWriter) {
-            $tempFileWriter.Dispose()
-        }
-        if ($tempFile) {
-            $tempFile.Close()
-        }
         # Close backup file handles
         if ($backupFileWriter) {
             $backupFileWriter.Dispose()

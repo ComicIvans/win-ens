@@ -56,6 +56,12 @@ function Invoke-RegistryPolicy {
         # Apply the policy
         Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -NoConsole
         try {
+          # Verify if the registry key exists
+          if (-not (Test-Path -Path $PolicyMeta.Path)) {
+            Show-Info -Message "La clave de registro '$($PolicyMeta.Path)' no existe. Creándola..." -NoConsole
+            New-Item -Path $PolicyMeta.Path | Out-Null
+          }
+
           New-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $PolicyMeta.ExpectedValue -Type $PolicyMeta.ValueKind -ErrorAction Stop -Force | Out-Null
           Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
         }
@@ -102,10 +108,7 @@ function Invoke-SecurityPolicy {
   # Export security policy
   try {
     & secedit /export /cfg $tempFilePath /areas SECURITYPOLICY | Out-Null
-    $tempFile = [System.IO.File]::Open($tempFilePath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
-    $lines = Get-Content -Path $tempFilePath -Encoding ASCII
-    $tempFileWriter = [System.IO.StreamWriter]::new($tempFile, [System.Text.Encoding]::ASCII)
-    $tempFileWriter.AutoFlush = $true
+    $lines = Get-Content -Path $tempFilePath -ErrorAction Stop
   }
   catch {
     Exit-WithError "[$($PolicyInfo.Name)] Error al exportar la configuración de seguridad del sistema: $_"
@@ -118,6 +121,9 @@ function Invoke-SecurityPolicy {
     $rawVal = $Matches[1]
     if ($rawVal -match '^\d+$') { $currentValue = [int]$rawVal } else { $currentValue = $rawVal }
   }
+  else {
+    Exit-WithError "[$($PolicyInfo.Name)] No se ha encontrado la propiedad '$($PolicyMeta.Property)' en el archivo exportado de configuración de seguridad del sistema."
+  }
 
   $isValid = $false
   switch ($PolicyMeta.ComparisonMethod) {
@@ -129,10 +135,18 @@ function Invoke-SecurityPolicy {
       }
     }
     "GreaterOrEqual" {
-      if ($null -ne $currentValue -and $currentValue -ge $PolicyMeta.ExpectedValue) { $isValid = $true }
+      if ($null -ne $currentValue -and $currentValue -ge $PolicyMeta.ExpectedValue) {
+        if (-not $Global:Config.EnforceMinimumPolicyValues -or $currentValue -eq $PolicyMeta.ExpectedValue) {
+          $isValid = $true
+        }
+      }
     }
     "LessOrEqual" {
-      if ($null -ne $currentValue -and $currentValue -le $PolicyMeta.ExpectedValue) { $isValid = $true }
+      if ($null -ne $currentValue -and $currentValue -le $PolicyMeta.ExpectedValue) {
+        if (-not $Global:Config.EnforceMinimumPolicyValues -or $currentValue -eq $PolicyMeta.ExpectedValue) {
+          $isValid = $true
+        }
+      }
     }
     Default {
       Exit-WithError "[$($PolicyInfo.Name)] Método de comparación '$($PolicyMeta.ComparisonMethod)' no soportado."
@@ -157,16 +171,9 @@ function Invoke-SecurityPolicy {
         Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -NoConsole
         try {
           $pattern = "^(?i)$($PolicyMeta.Property)\s*=\s*\S+"
-          if ($propLine) {
-            $newContent = $lines -replace $pattern, ("{0} = {1}" -f $PolicyMeta.Property, $PolicyMeta.ExpectedValue)
-          }
-          else {
-            # Add line if not exists
-            $newContent = $lines + ("{0} = {1}" -f $PolicyMeta.Property, $PolicyMeta.ExpectedValue)
-          }
+          $newContent = $lines -replace $pattern, ("{0} = {1}" -f $PolicyMeta.Property, $PolicyMeta.ExpectedValue)
           # Write the new content to the temp file and use it to import the new policy
-          $tempFile.SetLength(0)
-          $tempFileWriter.Write($newContent)
+          $newContent | Set-Content -Path $tempFilePath -ErrorAction Stop
           & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath /areas SECURITYPOLICY | Out-Null
           Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
         }
@@ -181,18 +188,10 @@ function Invoke-SecurityPolicy {
         if ($Backup.ContainsKey($PolicyInfo.Name)) {
           $backupValue = $Backup[$PolicyInfo.Name]
           if ($backupValue -ne $currentValue) {
-            $lines = Get-Content -Path $tempFilePath
-            $propLine = $lines | Where-Object { $_ -match "^(?i)$($PolicyMeta.Property)\s*=" } | Select-Object -First 1
             $pattern = "^(?i)$($PolicyMeta.Property)\s*=\s*\S+"
-            if ($propLine) {
-              $newContent = $lines -replace $pattern, ("{0} = {1}" -f $PolicyMeta.Property, $backupValue)
-            }
-            else {
-              $newContent = $lines + ("{0} = {1}" -f $PolicyMeta.Property, $backupValue)
-            }
+            $newContent = $lines -replace $pattern, ("{0} = {1}" -f $PolicyMeta.Property, $backupValue)
             # Write the new content to the temp file and use it to import the new policy
-            $tempFile.SetLength(0)
-            $tempFileWriter.Write($newContent)
+            $newContent | Set-Content -Path $tempFilePath -ErrorAction Stop
             & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath /areas SECURITYPOLICY | Out-Null
           }
           Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada."
@@ -210,7 +209,5 @@ function Invoke-SecurityPolicy {
     }
   }
 
-  $tempFileWriter.Dispose()
-  $tempFile.Close()
   Remove-Item -Path $tempFilePath -ErrorAction SilentlyContinue
 }
