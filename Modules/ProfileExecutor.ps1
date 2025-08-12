@@ -180,7 +180,12 @@ function Invoke-Group {
       if (-not (Test-ObjectStructure -Template $PolicyMetaTemplate -Target $PolicyMeta -AllowAdditionalProperties)) {
         Exit-WithError "[$($PolicyInfo.Name)] La estructura del objeto de metadatos de la política no es válida, para más información, consulta los registros."
       }
-
+    }
+    catch {
+      $PolicyInfo.Status = 'Aborted'
+      Exit-WithError "[$($GroupInfo.Name)] Ha ocurrido un problema cargando la política '$($PolicyInfo.Name)': $_"
+    }
+    try {
       $PolicyInfo.Status = 'Running'
       Save-GlobalInfo
       Show-Info -Message "[$($PolicyInfo.Name)] Ejecutando política..." -LogOnly
@@ -225,7 +230,7 @@ function Invoke-Group {
     }
     catch {
       $PolicyInfo.Status = 'Aborted'
-      Exit-WithError "[$($GroupInfo.Name)] Ha ocurrido un problema cargando o ejecutando la política '$($PolicyInfo.Name)': $_"
+      Exit-WithError "[$($GroupInfo.Name)] Ha ocurrido un problema ejecutando la política '$($PolicyInfo.Name)': $_"
     }
   }
 
