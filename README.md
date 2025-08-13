@@ -87,6 +87,19 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
 ---
 
+## Aviso sobre las políticas sin valor establecido en los grupos OP_ACC_4 y OP_ACC_5
+
+Al hacer pruebas con las políticas del tipo "Security", observamos un comportamiento inesperado: una vez se importa el archivo `secpol.cfg` (aunque el único cambio en el archivo sea el correspondiente al valor de la política ejecutándose), Windows le asigna un valor a todas las otras políticas que no tenían un valor configurado, tanto del grupo OP_ACC_4 como del OP_ACC_5.
+
+Esto, por una parte, hace que al ajustar una política se estén modificando otras de forma accidental, pero lo más preocupante es que causa conflictos con las copias de seguridad:
+
+- Si se está restaurando una copia de seguridad donde se está eliminando el valor de alguna política y después se restaura una política de seguridad, aquellas con el valor eliminado volverán a tener uno, haciendo inefectiva su restauración.
+- Si se está ajustando un perfil, aquellas políticas sin valor configurado que se ejecuten después de una de seguridad no tendrán una copia de seguridad correcta por contener el valor que le haya asignado Windows al importar `secpol.cfg`.
+
+No hay solución por el momento, por lo que si se ejecuta alguna de las políticas del tipo "Security" se debe tener en mente que no será posible, salvo que se anoten anteriormente las políticas sin valor configurado, restaurar el sistema a su estado anterior al completo.
+
+---
+
 ## Cómo añadir nuevas políticas
 
 Si deseas añadir un nuevo perfil, grupo de políticas o políticas a grupos existentes, debes seguir los siguientes pasos:
