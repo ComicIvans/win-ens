@@ -32,8 +32,11 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
   - **Utils.ps1**: Funciones de utilidad, conversión y validación recursiva de objetos, guardado de archivos en disco (backups, info), etc.
   - **PolicyExecutor.ps1**: Lógica genérica para ejecutar tipos de políticas predeterminados.
   - **ProfileExecutor.ps1**: Orquesta la ejecución de perfiles completos recorriendo grupos y políticas.
-  - **Templates.ps1**: Plantillas para validar objetos (configuración, `GroupInfo`, `ProfileInfo`, etc.).
-  - **Media_Estandar/**, **Alta_UsoOficial/**, etc.: Carpetas de perfiles con un `Main_{Perfil}.ps1` y subcarpetas de grupos (por ejemplo, `OP_ACC_4`), que contienen un `Main_{Grupo}.ps1` y los scripts de políticas (`01_*.ps1`, etc.).
+  - **Templates.ps1**: Plantillas para validar objetos (configuración y varios tipos de `ProfileMeta`.).
+
+- **Profiles/**: Carpeta que contiene todos los perfiles, sus grupos y sus políticas.
+
+  - **Media_Estandar/**, **Alta_UsoOficial/**, etc.: Carpetas de perfiles con subcarpetas de grupos (por ejemplo, `OP_ACC_4`), que contienen los scripts de políticas (`01_*.ps1`, etc.).
 
 - **Logs/**: Directorio donde se almacenan:
 
@@ -56,9 +59,8 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
 2. **Ejecución de perfiles y grupos**
 
-   - `Main.ps1` llama a `Invoke-Profile` dentro de `ProfileExecutor.ps1`, que carga el script principal del perfil seleccionado (`Main_{Categoria}_{Calificacion}.ps1`).
-   - El script del perfil define el objeto `$ProfileInfo` y por cada subcarpeta (grupo) se llama a `Invoke-Group`, donde se carga el script principal de cada grupo (`Main_{Grupo}.ps1`), que define el objeto `$GroupInfo`.
-   - Cada grupo contiene varias políticas que se cargan y definen los objetos `$PolicyInfo` y `$PolicyMeta`. Este último servirá para indicarle a la función cómo ejecutar dicha política.
+   - `Main.ps1` llama a `Invoke-Profile` dentro de `ProfileExecutor.ps1`, que carga y ejecuta los grupos dentro del perfil llamando a `Invoke-Group`.
+   - Cada grupo contiene varias políticas que se cargan y define el objeto `$PolicyMeta`, con información sobre cómo ejecutar dicha política.
    - Las políticas pueden recurrir a la lógica genérica disponible en `PolicyExecutor.ps1` o implementar sus propias funciones `Test-Policy`, `Set-Policy`, `Restore-Policy`, gestionando toda la ejecución.
 
 3. **Flujo Test / Set / Restore**
@@ -89,13 +91,11 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
 Si deseas añadir un nuevo perfil, grupo de políticas o políticas a grupos existentes, debes seguir los siguientes pasos:
 
-1. Para **crear un perfil**, comenzar creando una subcarpeta dentro de `Modules\` (por ejemplo, `Modules\Media_Estandar\`).
-2. Dentro de esa carpeta, crear el script `Main_<Perfil>.ps1` con su correspondiente objeto `$ProfileInfo` (por ejemplo, `Modules\Media_Estandar\Main_Media_Estandar.ps1`).
-3. Para **crear un grupo**, crear una subcarpeta dentro de `Modules\<Perfil>` (por ejemplo, `Modules\Media_Estandar\OP_ACC_4`).
-4. Dentro de esa carpeta, crear el script `Main_<Grupo>.ps1` con su correspondiente objeto `$GroupInfo` (por ejemplo, `Modules\Media_Estandar\OP_ACC_4\Main_OP_ACC_4.ps1`).
-5. Crear un script para cada política concreta (`01_NuevaPolitica.ps1`, etc.) en la misma carpeta:
-   - En caso de ser de un tipo soportado (comprobar las funciones de `PolicyExecutor.ps1`), definir únicamente su objeto `$PolicyInfo` con el tipo correspondiente y la información asociada a dicho tipo.
-   - En caso de ser un tipo nuevo, o generalizar su ejecución mediante una nueva función de `PolicyExecutor.ps1` y su correspondiente llamada en `ProfileExecutor.ps1`, o especificar el tipo `Custom` e incluir las funciones `Test-Policy`, `Set-Policy` y `Restore-Policy` dentro del archivo dela política. En este último caso, asegurarse de implementar una lógica lo más similar posible a las ya existentes en `PolicyExecutor.ps1`.
+1. Para **crear un perfil**, comenzar creando una subcarpeta dentro de `Profiles\` (por ejemplo, `Profiles\Media_Estandar\`).
+2. Dentro de esa carpeta **añadir un grupo**, creando una subcarpeta dentro de `Profiles\<Perfil>` (por ejemplo, `Profiles\Media_Estandar\OP_ACC_4`).
+3. Crear un script para cada política concreta (`01_NuevaPolitica.ps1`, etc.) en la carpeta del grupo:
+   - En caso de ser de un tipo soportado (comprobar las funciones de `PolicyExecutor.ps1`), definir únicamente su objeto `$PolicyMeta` con el tipo correspondiente y la información asociada a dicho tipo.
+   - En caso de ser un tipo nuevo: o bien generalizar su ejecución mediante una nueva función de `PolicyExecutor.ps1` y su correspondiente llamada en `ProfileExecutor.ps1`, o bien especificar el tipo `Custom` dentro de `$PolicyMeta` e incluir las funciones `Test-Policy`, `Set-Policy` y `Restore-Policy` dentro del archivo de la política. En este último caso, asegurarse de implementar una lógica lo más similar posible a las ya existentes en `PolicyExecutor.ps1`.
 
 Es **muy recomendable** implementar los nuevos archivos a partir de una copia de los existentes, para asegurar que se sigue la misma estructura y se implementan todas variables necesarias con sus nombres y propiedades correspondientes. En caso de hacerse, asegurar que todo el contenido se actualice de acuerdo a la nueva política, sin referencias a la original.
 
