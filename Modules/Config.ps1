@@ -159,7 +159,8 @@ function Show-Config {
 
   # Dictionary with descriptions for each general config key
   $configDescriptions = @{
-    "EnforceMinimumPolicyValues" = "Si está activado, se fuerza el valor mínimo requerido por cada política, sobrescribiendo valores más seguros"
+    EnforceMinimumPolicyValues = 'Si está activado, se fuerza el valor mínimo requerido por cada política, sobrescribiendo valores más seguros'
+    TestOnlyEnabled            = 'Si está activado, las políticas desactivadas en la configuración tampoco se comprobarán con la acción "Test"'
   }
 
   # Print all general config keys except ScriptsEnabled
