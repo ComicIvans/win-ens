@@ -6,6 +6,23 @@
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 [Console]::InputEncoding = [Text.Encoding]::UTF8
 
+# Privilege check
+$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host "Se requieren privilegios de administrador. Elevando..."
+    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    Start-Process PowerShell.exe -Verb RunAs -ArgumentList $arguments
+    exit
+}
+
+# Set window size
+# $windowWidth = 80
+# $windowHeight = 40
+# $bufferWidth = [Math]::Max($windowWidth, 120)
+# $bufferHeight = 1000 # Scrollable lines
+# $host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size($bufferWidth, $bufferHeight)
+# $host.UI.RawUI.WindowSize = New-Object Management.Automation.Host.Size($windowWidth, $windowHeight)
+
 # Import utility functions
 Import-Module "$PSScriptRoot\Modules\Utils.ps1"
 # Import PrintsAndLogs, where print functions are defined
@@ -17,15 +34,6 @@ Import-Module "$PSScriptRoot\Modules\ProfileExecutor.ps1"
 # Import templates
 Import-Module "$PSScriptRoot\Modules\Templates.ps1"
 
-# Privilege check
-$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Se requieren privilegios de administrador. Elevando..."
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-    Start-Process PowerShell.exe -Verb RunAs -ArgumentList $arguments
-    exit
-}
-
 # Global object with general execution information
 $Global:Info = [PSCustomObject]@{
     Timestamp = (Get-Date).ToString("yyyy-MM-dd_HH-mm-ss")
@@ -34,8 +42,6 @@ $Global:Info = [PSCustomObject]@{
     Error     = ''
     Profile   = $null       # Here we will store the reference to the Info object of the profile
 }
-
-Clear-Host
 
 # Function to display message, pause and exit
 function Exit-WithPause {

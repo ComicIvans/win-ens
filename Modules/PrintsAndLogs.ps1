@@ -4,7 +4,12 @@
 ###############################################################################
 
 # Maximum length of lines to print in the console
-$Global:MaxLineLength = 120
+try {
+    $Global:MaxLineLength = [Math]::Max((Get-Host).UI.RawUI.WindowSize.Width - 1, 80)
+}
+catch {
+    $Global:MaxLineLength = 119
+}
 
 # Print a header of three lines with a centered text
 function Show-Header3Lines {
