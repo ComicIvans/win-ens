@@ -85,6 +85,7 @@ function Get-LocalConfig {
 
   $localConfig = [ordered]@{
     EnforceMinimumPolicyValues = $false
+    TestOnlyEnabled            = $false
     ScriptsEnabled             = [ordered]@{}
   }
 

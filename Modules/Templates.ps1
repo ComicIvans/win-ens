@@ -7,6 +7,7 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $ConfigTemplate = [PSCustomObject]@{
   EnforceMinimumPolicyValues = $false
+  TestOnlyEnabled            = $false
   ScriptsEnabled             = [ordered]@{}
 }
 

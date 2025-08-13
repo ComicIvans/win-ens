@@ -110,6 +110,27 @@ function Invoke-Group {
   $backupFilePath = if ($Global:BackupFolderPath) { Join-Path $Global:BackupFolderPath "$($GroupName).json" } else { $null }
   $backup = [ordered]@{}
 
+  # Get all .ps1 files in the folder
+  $policyScripts = Get-ChildItem -Path $groupPath -Filter "*.ps1"
+
+  if ($Global:Info.Action -eq "Test" -and $Global:Config.TestOnlyEnabled) {
+    # Check if all policies in the group are disabled.
+    $anyEnabled = $false
+    foreach ($script in $policyScripts) {
+      $policyName = $script.BaseName
+      if ($Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$policyName]) {
+        $anyEnabled = $true
+        break
+      }
+    }
+    if (-not $anyEnabled) {
+      $GroupInfo.Status = 'Skipped'
+      Show-Info -Message "[$($GroupName)] No se encontraron políticas habilitadas en el grupo." -NoConsole
+      Save-GlobalInfo
+      return
+    }
+  }
+
   Show-Header1Line $GroupName.Replace('_', '.').ToLower()
   Show-Info -Message "[$($GroupName)] Ejecutando grupo..." -NoConsole
 
@@ -144,9 +165,6 @@ function Invoke-Group {
     }
   }
 
-  # Get all .ps1 files in the folder
-  $policyScripts = Get-ChildItem -Path $groupPath -Filter "*.ps1"
-
   # Load script and perform the action for each policy
   foreach ($script in $policyScripts) {
     try {
@@ -164,9 +182,15 @@ function Invoke-Group {
       . $script.FullName
         
       # Skip if the policy is not enabled in the configuration or if the backup does not contain the policy
-      if ($Global:Info.Action -eq "Set" -and $Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$PolicyInfo.Name] -ne $true) {
+      if ($Global:Info.Action -eq "Test" -and $Global:Config.TestOnlyEnabled -and $Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$PolicyInfo.Name] -ne $true) {
         $PolicyInfo.Status = 'Skipped'
-        Show-Info -Message "[$($PolicyInfo.Name)] Política no habilitada en la configuración. Saltando ejecución."
+        Show-Info -Message "[$($PolicyInfo.Name)] Política no habilitada en la configuración." -NoConsole
+        Save-GlobalInfo
+        continue
+      }
+      elseif ($Global:Info.Action -eq "Set" -and $Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$PolicyInfo.Name] -ne $true) {
+        $PolicyInfo.Status = 'Skipped'
+        Show-Info -Message "[$($PolicyInfo.Name)] Política no habilitada en la configuración."
         Save-GlobalInfo
         continue
       }
