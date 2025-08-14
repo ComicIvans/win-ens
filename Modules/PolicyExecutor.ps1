@@ -45,7 +45,7 @@ function Invoke-RegistryPolicy {
     }
     "Set" {
       if ($isValid) {
-        Show-Success -Message "[$($PolicyInfo.Name)] La política ya cumplía con el perfil."
+        Show-Info -Message "[$($PolicyInfo.Name)] La política ya cumplía con el perfil."
       }
       else {
         # Take a backup
@@ -164,7 +164,7 @@ function Invoke-SecurityPolicy {
     }
     "Set" {
       if ($isValid) {
-        Show-Success -Message "[$($PolicyInfo.Name)] La política ya cumplía con el perfil."
+        Show-Info -Message "[$($PolicyInfo.Name)] La política ya cumplía con el perfil."
       }
       else {
         # Backup

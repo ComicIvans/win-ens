@@ -28,7 +28,7 @@ function Invoke-CustomPolicy {
     }
     "Set" {
       if ($null -eq $usersWithNeverExpire) {
-        Show-Success -Message "[$($PolicyInfo.Name)] La política ya cumplía con el perfil."
+        Show-Info -Message "[$($PolicyInfo.Name)] La política ya cumplía con el perfil."
       }
       else {
         # Take a backup
