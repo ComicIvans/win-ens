@@ -18,7 +18,7 @@ if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adminis
 # Set window size
 # $windowWidth = 80
 # $windowHeight = 40
-# $bufferWidth = [Math]::Max($windowWidth, 120)
+# $bufferWidth = [Math]::Max($windowWidth, 120) # Must be at least 120 and >= $windowWidth
 # $bufferHeight = 1000 # Scrollable lines
 # $host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size($bufferWidth, $bufferHeight)
 # $host.UI.RawUI.WindowSize = New-Object Management.Automation.Host.Size($windowWidth, $windowHeight)
@@ -26,7 +26,7 @@ if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adminis
 # Customize window
 $Host.ui.rawui.backgroundcolor = "Black"
 $Host.ui.rawui.foregroundcolor = "White"
-$Host.UI.RawUI.WindowTitle = "PowerShell: SCRIPT PARA LA ADECUACIÓN AL ENS"
+$Host.UI.RawUI.WindowTitle = "Script para la adecuación al ENS - PowerShell"
 Clear-Host
 
 # Import utility functions
