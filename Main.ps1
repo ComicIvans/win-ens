@@ -23,6 +23,12 @@ if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adminis
 # $host.UI.RawUI.BufferSize = New-Object Management.Automation.Host.Size($bufferWidth, $bufferHeight)
 # $host.UI.RawUI.WindowSize = New-Object Management.Automation.Host.Size($windowWidth, $windowHeight)
 
+# Customize window
+$Host.ui.rawui.backgroundcolor = "Black"
+$Host.ui.rawui.foregroundcolor = "White"
+$Host.UI.RawUI.WindowTitle = "PowerShell: SCRIPT PARA LA ADECUACIÓN AL ENS"
+Clear-Host
+
 # Import utility functions
 Import-Module "$PSScriptRoot\Modules\Utils.ps1"
 # Import PrintsAndLogs, where print functions are defined
