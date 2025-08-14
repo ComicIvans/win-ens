@@ -165,6 +165,9 @@ function Show-TableRow {
 
     $rowColor = if ($ValidValue -or $ExpectedValue -eq $CurrentValue) { "Green" } else { "Red" }
 
+    if (-not $ExpectedValue) {
+        $ExpectedValue = "N/A"
+    }
     if (-not $CurrentValue) {
         $CurrentValue = "N/A"
     }
