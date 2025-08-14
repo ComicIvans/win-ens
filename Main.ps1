@@ -24,8 +24,8 @@ if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adminis
 # $host.UI.RawUI.WindowSize = New-Object Management.Automation.Host.Size($windowWidth, $windowHeight)
 
 # Customize window
-$Host.ui.rawui.backgroundcolor = "Black"
-$Host.ui.rawui.foregroundcolor = "White"
+$Host.UI.RawUI.BackgroundColor = "Black"
+$Host.UI.RawUI.ForegroundColor = "White"
 $Host.UI.RawUI.WindowTitle = "Script para la adecuación al ENS - PowerShell"
 Clear-Host
 
