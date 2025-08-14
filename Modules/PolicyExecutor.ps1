@@ -74,7 +74,12 @@ function Invoke-RegistryPolicy {
       Show-Info -Message "[$($PolicyInfo.Name)] Restaurando copia de respaldo..." -NoConsole
       try {
         if ($null -eq $Backup[$PolicyInfo.Name]) {
-          Remove-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -ErrorAction Stop
+          if (Get-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -ErrorAction SilentlyContinue) {
+            Remove-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -ErrorAction Stop
+          }
+          else {
+            Show-Info -Message "[$($PolicyInfo.Name)] La propiedad '$($PolicyMeta.Property)' ya estaba eliminada, por lo que no se ha realizado ninguna acción." -NoConsole
+          }
         }
         else {
           New-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $Backup[$PolicyInfo.Name] -Type $PolicyMeta.ValueKind -ErrorAction Stop -Force | Out-Null
