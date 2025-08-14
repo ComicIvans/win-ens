@@ -236,27 +236,15 @@ function Invoke-Group {
       Show-Info -Message "[$($PolicyInfo.Name)] Ejecutando política..." -NoConsole
 
       if ($PolicyMeta.Type -eq "Custom") {
-        $functionsRequired = @(
-          "Test-Policy",
-          "Set-Policy",
-          "Restore-Policy"
-        )
-
-        # Check if the required functions are defined
-        foreach ($functionName in $functionsRequired) {
-          if (-not (Get-Command -Name $functionName -ErrorAction SilentlyContinue)) {
-            Exit-WithError "[$($PolicyInfo.Name)] La función '$functionName' no está definida en la política."
-          }
+        # Check if the required function is defined
+        if (-not (Get-Command -Name "Invoke-CustomPolicy" -ErrorAction SilentlyContinue)) {
+          Exit-WithError "[$($PolicyInfo.Name)] La función 'Invoke-CustomPolicy' no está definida en la política."
         }
 
-        & "$($Global:Info.Action)-Policy" -PolicyInfo $PolicyInfo -PolicyMeta $PolicyMeta -Backup $backup
+        Invoke-CustomPolicy -PolicyInfo $PolicyInfo -Backup $backup
 
-        # Remove the functions after execution to avoid conflicts
-        foreach ($functionName in $functionsRequired) {
-          if (Test-Path Function:\$functionName) {
-            Remove-Item Function:\$functionName
-          }
-        }
+        # Remove the function after execution to avoid conflicts
+        Remove-Item Function:\Invoke-CustomPolicy
       }
       else {
         # Look for policy-specific invoke function
