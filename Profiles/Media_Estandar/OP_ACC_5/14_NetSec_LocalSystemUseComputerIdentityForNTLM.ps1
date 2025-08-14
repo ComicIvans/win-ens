@@ -1,5 +1,5 @@
 ﻿###############################################################################
-# 13_NetSec_LocalSystemUseComputerIdentityForNTLM.ps1
+# 14_NetSec_LocalSystemUseComputerIdentityForNTLM.ps1
 # Seguridad de red: permitir que LocalSystem use la identidad del equipo para
 # NTLM
 ###############################################################################
@@ -7,7 +7,7 @@
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name             = '13_NetSec_LocalSystemUseComputerIdentityForNTLM'
+  Name             = '14_NetSec_LocalSystemUseComputerIdentityForNTLM'
   Description      = 'Seguridad de red: permitir que LocalSystem use la identidad del equipo para NTLM'
   Type             = 'Registry'
   Path             = 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
