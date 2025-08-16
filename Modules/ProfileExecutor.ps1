@@ -206,6 +206,9 @@ function Invoke-Group {
       if (-not $PolicyMeta) {
         Exit-WithError "[$($PolicyInfo.Name)] El objeto de metadatos de la política no está definido."
       }
+      elseif (-not ($PolicyInfo.Name -eq $PolicyMeta.Name)) {
+        Exit-WithError "[$($PolicyInfo.Name)] El nombre de la política en el objeto de metadatos no coincide con el nombre del archivo."
+      }
       elseif (-not $PolicyMeta.Type) {
         Exit-WithError "[$($PolicyInfo.Name)] El objeto de metadatos no tiene una clave 'Type' definida."
       }
@@ -256,6 +259,9 @@ function Invoke-Group {
           Exit-WithError "[$($PolicyInfo.Name)] Tipo de política '$($PolicyMeta.Type)' no soportado."
         }
       }
+
+      # Remove the PolicyMeta variable
+      Remove-Variable -Name PolicyMeta -Scope Script -ErrorAction SilentlyContinue
 
       $PolicyInfo.Status = 'Completed'
       Save-GlobalInfo
