@@ -112,7 +112,7 @@ function Invoke-SecurityPolicy {
 
   # Export security policy
   try {
-    & secedit /export /cfg $tempFilePath /areas SECURITYPOLICY | Out-Null
+    & secedit /export /cfg $tempFilePath | Out-Null
     $lines = Get-Content -Path $tempFilePath -ErrorAction Stop
   }
   catch {
@@ -153,6 +153,10 @@ function Invoke-SecurityPolicy {
         }
       }
     }
+    "ExactSet" {
+      $currentValue = $currentValue.Split(',')
+      $isValid = -not (Compare-Object -ReferenceObject $currentValue -DifferenceObject $PolicyMeta.ExpectedValue)
+    }
     Default {
       Exit-WithError "[$($PolicyInfo.Name)] Método de comparación '$($PolicyMeta.ComparisonMethod)' no soportado."
     }
@@ -160,6 +164,10 @@ function Invoke-SecurityPolicy {
 
   switch ($Global:Info.Action) {
     "Test" {
+      if ($PolicyMeta.ComparisonMethod -eq "ExactSet") {
+        $currentValue = $currentValue -join ", "
+        $PolicyMeta.ExpectedValue = $PolicyMeta.ExpectedValue -join ", "
+      }
       Show-TableRow -PolicyName "$($PolicyMeta.Description)" -ExpectedValue $PolicyMeta.ExpectedValue -CurrentValue $currentValue -ValidValue:($isValid)
     }
     "Set" {
@@ -179,7 +187,10 @@ function Invoke-SecurityPolicy {
           $newContent = $lines -replace $pattern, ("{0} = {1}" -f $PolicyMeta.Property, $PolicyMeta.ExpectedValue)
           # Write the new content to the temp file and use it to import the new policy
           $newContent | Set-Content -Path $tempFilePath -ErrorAction Stop
-          & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath /areas SECURITYPOLICY | Out-Null
+          & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            Exit-WithError "[$($PolicyInfo.Name)] Error al aplicar la política. Consultar el registro %windir%\security\logs\scesrv.log para obtener información detallada."
+          }
           Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
         }
         catch {
@@ -197,7 +208,7 @@ function Invoke-SecurityPolicy {
             $newContent = $lines -replace $pattern, ("{0} = {1}" -f $PolicyMeta.Property, $backupValue)
             # Write the new content to the temp file and use it to import the new policy
             $newContent | Set-Content -Path $tempFilePath -ErrorAction Stop
-            & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath /areas SECURITYPOLICY | Out-Null
+            & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath | Out-Null
           }
           Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada."
         }
