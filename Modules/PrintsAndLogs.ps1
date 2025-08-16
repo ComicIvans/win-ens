@@ -185,4 +185,7 @@ function Show-TableRow {
         $line = ("{0, -$col1} | {1, -$col2} | {2, -$col3}" -f $p, $e, $c)
         Write-Host $line -ForegroundColor $rowColor
     }
+
+    $spacer = ("{0, -$col1} | {1, -$col2} | {2, -$col3}" -f "", "", "")
+    Write-Host $spacer -ForegroundColor $rowColor
 }
