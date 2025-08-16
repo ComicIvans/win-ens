@@ -14,34 +14,27 @@ function ConvertTo-HashtableRecursive {
   )
 
   if ($Object -is [PSCustomObject]) {
-    if ($Ordered) {
-      $ht = [ordered]@{}
-    }
-    else {
-      $ht = @{}
-    }
-    
+    $ht = if ($Ordered) { [ordered]@{} } else { @{} }
     foreach ($prop in $Object.PSObject.Properties) {
-      if ($null -eq $prop.Value) {
-        $ht[$prop.Name] = $null
-      }
-      else {
-        $ht[$prop.Name] = ConvertTo-HashtableRecursive $prop.Value -Ordered:$Ordered
-      }
+      $ht[$prop.Name] = if ($null -eq $prop.Value) { $null } else { ConvertTo-HashtableRecursive -Object $prop.Value -Ordered:$Ordered }
+    }
+    return $ht
+  }
+  elseif ($Object -is [System.Collections.IDictionary]) {
+    $ht = if ($Ordered) { [ordered]@{} } else { @{} }
+    $keys = if ($Ordered) { $Object.Keys | Sort-Object } else { $Object.Keys }
+    foreach ($key in $keys) {
+      $val = $Object[$key]
+      $ht[$key] = if ($null -eq $val) { $null } else { ConvertTo-HashtableRecursive -Object $val -Ordered:$Ordered }
     }
     return $ht
   }
   elseif ($Object -is [System.Collections.IEnumerable] -and -not ($Object -is [string])) {
-    $list = @()
+    $list = [System.Collections.Generic.List[object]]::new()
     foreach ($item in $Object) {
-      if ($null -eq $item) {
-        $list += $null
-      }
-      else {
-        $list += ConvertTo-HashtableRecursive $item -Ordered:$Ordered
-      }
+      $list.Add( $(if ($null -eq $item) { $null } else { ConvertTo-HashtableRecursive -Object $item -Ordered:$Ordered }) )
     }
-    return $list
+    return , ($list.ToArray())
   }
   else {
     return $Object
@@ -76,7 +69,7 @@ function Save-Backup {
   }
 }
 
-# Function to test the structure of an object against a template
+# Function to test the structure of an object against a template. This does not validate objects inside arrays
 Function Test-ObjectStructure {
   param(
     [Parameter(Mandatory = $true)]
@@ -91,32 +84,36 @@ Function Test-ObjectStructure {
 
   $anyFail = $false
 
-  # Convert $Target to PSCustomObject if it's a Hashtable or OrderedDictionary
+  # Normalize hashtable-like targets to PSCustomObject
   if ($Target -is [System.Collections.Hashtable] -or $Target -is [System.Collections.Specialized.OrderedDictionary]) {
-    $ConvertedTarget = [PSCustomObject]@{ }
+    $converted = [PSCustomObject]@{}
     foreach ($key in $Target.Keys) {
-      $ConvertedTarget | Add-Member -MemberType NoteProperty -Name $key -Value $Target[$key]
+      $converted | Add-Member -MemberType NoteProperty -Name $key -Value $Target[$key]
     }
-    $Target = $ConvertedTarget
+    $Target = $converted
   }
 
-  $TemplateProps = $Template | Get-Member -MemberType NoteProperty
-  $TargetProps = $Target | Get-Member -MemberType NoteProperty
+  $templateProps = ($Template | Get-Member -MemberType NoteProperty).Name
+  $targetProps = ($Target | Get-Member -MemberType NoteProperty).Name
 
   # Check for properties in the template that are not found in the target
-  if (@($TemplateProps.Name).Where({ $_ -notin $TargetProps.Name }).Count -gt 0) {
-    Show-Warning "Las siguientes propiedades no se encontraron: $(@($TemplateProps.Name).Where({ $_ -notin $TargetProps.Name }) -join ', ')" -NoConsole
+  $missing = $templateProps | Where-Object { $_ -notin $targetProps }
+  if ($missing.Count -gt 0) {
+    Show-Warning "Las siguientes propiedades no se encontraron: $($missing -join ', ')" -NoConsole
     return $false
   }
 
   # Check for properties in the target that are not found in the template
-  if (-not $AllowAdditionalProperties -and @($TargetProps.Name).Where({ $_ -notin $TemplateProps.Name }).count -gt 0) {
-    Show-Warning "Se encontraron las siguientes propiedades desconocidas: $(@($TargetProps.Name).Where({ $_ -notin $TemplateProps.Name }) -join ', ')" -NoConsole
-    return $false
+  if (-not $AllowAdditionalProperties) {
+    $unknown = $targetProps | Where-Object { $_ -notin $templateProps }
+    if ($unknown.Count -gt 0) {
+      Show-Warning "Se encontraron las siguientes propiedades desconocidas: $($unknown -join ', ')" -NoConsole
+      return $false
+    }
   }
 
   # For all non-null properties shared between the objects, check if their values have the same type
-  $sharedProps = @($TemplateProps.Name).Where({ $_ -in $TargetProps.Name -and $null -ne $Template.$_ })
+  $sharedProps = $templateProps | Where-Object { ($_ -in $targetProps) -and ($_ -notin $SkipProperties) -and ($null -ne $Template.$_) }
   foreach ($sharedProp in $sharedProps) {
     if ($Template.$sharedProp.GetType() -ne $Target.$sharedProp.GetType()) {
       Show-Warning "La propiedad '$sharedProp' tiene un tipo '$($Target.$sharedProp.GetType())' en lugar de '$($Template.$sharedProp.GetType())'." -NoConsole
@@ -131,9 +128,9 @@ Function Test-ObjectStructure {
   $sharedProps = $sharedProps.Where({ $_ -notin $SkipProperties })
   # For any properties that are PSObjects, do a recursive call to compare their properties
   foreach ($sharedProp in $sharedProps) {
-    if ($Template.$sharedProp.GetType() -eq [System.Management.Automation.PSCustomObject]) {
+    if ($Template.$sharedProp -is [PSCustomObject]) {
       Show-Info "Comparando la propiedad '$sharedProp'..." -NoConsole
-      if (-not (Test-PSObjectStructure -template $Template.$sharedProp -target $Target.$sharedProp)) {
+      if (-not (Test-ObjectStructure -Template $Template.$sharedProp -Target $Target.$sharedProp -SkipProperties $SkipProperties -AllowAdditionalProperties:$AllowAdditionalProperties)) {
         $anyFail = $true
       }
     }
