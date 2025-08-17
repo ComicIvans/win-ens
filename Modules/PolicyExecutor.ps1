@@ -154,8 +154,8 @@ function Invoke-SecurityPolicy {
       }
     }
     "ExactSet" {
-      $currentValue = $currentValue.Split(',')
-      $isValid = -not (Compare-Object -ReferenceObject $currentValue -DifferenceObject $PolicyMeta.ExpectedValue)
+      $isValid = -not (Compare-Object -ReferenceObject $currentValue.Split(",") -DifferenceObject $PolicyMeta.ExpectedValue)
+      $PolicyMeta.ExpectedValue = $PolicyMeta.ExpectedValue -join ","
     }
     Default {
       Exit-WithError "[$($PolicyInfo.Name)] Método de comparación '$($PolicyMeta.ComparisonMethod)' no soportado."
@@ -164,10 +164,6 @@ function Invoke-SecurityPolicy {
 
   switch ($Global:Info.Action) {
     "Test" {
-      if ($PolicyMeta.ComparisonMethod -eq "ExactSet") {
-        $currentValue = $currentValue -join ", "
-        $PolicyMeta.ExpectedValue = $PolicyMeta.ExpectedValue -join ", "
-      }
       Show-TableRow -PolicyName "$($PolicyMeta.Description)" -ExpectedValue $PolicyMeta.ExpectedValue -CurrentValue $currentValue -ValidValue:($isValid)
     }
     "Set" {
