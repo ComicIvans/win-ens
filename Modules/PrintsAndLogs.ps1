@@ -10,6 +10,8 @@ try {
 catch {
     $Global:MaxLineLength = 119
 }
+$Global:ExpectedColWidth = [Math]::Ceiling($Global:MaxLineLength / 8)
+$Global:CurrentColWidth = [Math]::Ceiling($Global:MaxLineLength / 8)
 
 # Print a header of three lines with a centered text
 function Show-Header3Lines {
@@ -137,13 +139,12 @@ function Show-Success {
 
 # Print a table header for displaying policy testing information
 function Show-TableHeader {
-    $maxLine = $Global:MaxLineLength
-    $separator = "-" * $maxLine
+    $separator = "-" * $Global:MaxLineLength
     Write-Host $separator
 
-    $col2 = 15
-    $col3 = 15
-    $col1 = $maxLine - 6 - $col2 - $col3
+    $col2 = $Global:ExpectedColWidth
+    $col3 = $Global:CurrentColWidth
+    $col1 = $Global:MaxLineLength - 6 - $col2 - $col3
 
     $headerLine = ("{0, -$col1} | {1, -$col2} | {2, -$col3}" -f "Política", "Esperado", "Actual")
     Write-Host $headerLine -ForegroundColor Yellow
@@ -158,10 +159,9 @@ function Show-TableRow {
         [string]$CurrentValue,
         [switch]$ValidValue
     )
-    $maxLine = $Global:MaxLineLength
-    $col2 = 15
-    $col3 = 15
-    $col1 = $maxLine - 6 - $col2 - $col3
+    $col2 = $Global:ExpectedColWidth
+    $col3 = $Global:CurrentColWidth
+    $col1 = $Global:MaxLineLength - 6 - $col2 - $col3
 
     $rowColor = if ($ValidValue -or $ExpectedValue -eq $CurrentValue) { "Green" } else { "Red" }
 
