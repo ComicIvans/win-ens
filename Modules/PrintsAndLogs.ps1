@@ -168,8 +168,14 @@ function Show-TableRow {
     if (-not $ExpectedValue) {
         $ExpectedValue = "N/A"
     }
+    elseif ($ExpectedValue -is [System.Array]) {
+        $ExpectedValue = $ExpectedValue -join ", "
+    }
     if (-not $CurrentValue) {
         $CurrentValue = "N/A"
+    }
+    elseif ($CurrentValue -is [System.Array]) {
+        $CurrentValue = $CurrentValue -join ", "
     }
 
     $policyChunks = $PolicyName -split "(?<=\G.{$col1})"
