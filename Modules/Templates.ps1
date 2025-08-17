@@ -38,6 +38,7 @@ $SecurityPolicyMetaTemplate = [PSCustomObject]@{
   Name             = ''
   Description      = ''
   Type             = 'Security'
+  Area             = ''
   Property         = ''
   ExpectedValue    = $null
   ComparisonMethod = ''
