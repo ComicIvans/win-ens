@@ -305,11 +305,13 @@ function Show-Config {
         Write-Host " Grupo: $group" -ForegroundColor Cyan
         if ($diffLocalNotInGlobal[$prof].Contains($group) -and $diffLocalNotInGlobal[$prof][$group].Count -gt 0) {
           foreach ($script in $diffLocalNotInGlobal[$prof][$group]) {
+            Write-Host ""
             Write-Host "  -> La polítia '$script' no se contemplaba en la configuración. No se aplicará salvo que se agregue a la configuración." -ForegroundColor Blue
           }
         }
         if ($diffGlobalNotInLocal[$prof].Contains($group) -and $diffGlobalNotInLocal[$prof][$group].Count -gt 0) {
           foreach ($script in $diffGlobalNotInLocal[$prof][$group]) {
+            Write-Host ""
             Write-Host "  -> La polítia '$script' se contempla en la configuración pero no se ha encontrado su archivo correspondiente. No se aplicará." -ForegroundColor Yellow
           }
         }
