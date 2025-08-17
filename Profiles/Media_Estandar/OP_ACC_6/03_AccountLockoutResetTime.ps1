@@ -14,6 +14,7 @@ $PolicyMeta = [PSCustomObject]@{
   Name             = '03_AccountLockoutResetTime'
   Description      = 'Restablecer el bloqueo de cuenta después de'
   Type             = 'Security'
+  Area             = 'System Access'
   Property         = 'ResetLockoutCount'
   ExpectedValue    = 15
   ComparisonMethod = 'GreaterOrEqual'

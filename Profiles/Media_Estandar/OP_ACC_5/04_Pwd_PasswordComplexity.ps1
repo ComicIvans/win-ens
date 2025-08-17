@@ -9,6 +9,7 @@ $PolicyMeta = [PSCustomObject]@{
   Name             = '04_Pwd_PasswordComplexity'
   Description      = 'La contraseña debe cumplir los requisitos de complejidad'
   Type             = 'Security'
+  Area             = 'System Access'
   Property         = 'PasswordComplexity'
   ExpectedValue    = 1
   ComparisonMethod = 'AllowedValues'

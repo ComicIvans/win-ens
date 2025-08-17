@@ -9,6 +9,7 @@ $PolicyMeta = [PSCustomObject]@{
   Name             = '05_Pwd_PasswordHistorySize'
   Description      = 'Exigir historial de contraseñas'
   Type             = 'Security'
+  Area             = 'System Access'
   Property         = 'PasswordHistorySize'
   ExpectedValue    = 24
   ComparisonMethod = 'GreaterOrEqual'

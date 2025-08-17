@@ -9,6 +9,7 @@ $PolicyMeta = [PSCustomObject]@{
   Name             = '06_Pwd_ReversibleEncryption'
   Description      = 'Almacenar contraseñas con cifrado reversible'
   Type             = 'Security'
+  Area             = 'System Access'
   Property         = 'ClearTextPassword'
   ExpectedValue    = 0
   ComparisonMethod = 'AllowedValues'

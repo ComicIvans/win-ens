@@ -126,9 +126,6 @@ function Invoke-SecurityPolicy {
     $rawVal = $Matches[1]
     if ($rawVal -match '^\d+$') { $currentValue = [int]$rawVal } else { $currentValue = $rawVal }
   }
-  else {
-    Exit-WithError "[$($PolicyInfo.Name)] No se ha encontrado la propiedad '$($PolicyMeta.Property)' en el archivo exportado de configuración de seguridad del sistema."
-  }
 
   $isValid = $false
   switch ($PolicyMeta.ComparisonMethod) {
@@ -153,9 +150,52 @@ function Invoke-SecurityPolicy {
         }
       }
     }
-    "ExactSet" {
-      $isValid = -not (Compare-Object -ReferenceObject $currentValue.Split(",") -DifferenceObject $PolicyMeta.ExpectedValue)
-      $PolicyMeta.ExpectedValue = $PolicyMeta.ExpectedValue -join ","
+    "PrivilegeSet" {
+      if ($null -ne $currentValue) {
+        $currentValues = foreach ($value in $currentValue.Split(",")) {
+          if ($value[0] -eq '*') {
+            $value
+          }
+          else {
+            try {
+              $sid = (New-Object System.Security.Principal.NTAccount($value)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+              "*$sid"
+            }
+            catch {
+              Exit-WithError -Message "[$($PolicyInfo.Name)] No se pudo convertir '$value', presente en '$tempFilePath', a su SID: $($_.Exception.Message)"
+            }
+          }
+        }
+      }
+      else {
+        $currentValues = @()
+      }
+
+      $expectedValues = foreach ($value in $PolicyMeta.ExpectedValue) {
+        $value.ToString().Trim()
+      }
+      $expectedValues = foreach ($value in $expectedValues) {
+        if ($value[0] -eq '*') {
+          $value
+        }
+        else {
+          try {
+            $sid = (New-Object System.Security.Principal.NTAccount($value)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+            "*$sid"
+          }
+          catch {
+            Exit-WithError -Message "[$($PolicyInfo.Name)] No se pudo convertir '$value', presente en el archivo de configuración de seguridad del sistema, a su SID: $($_.Exception.Message)"
+          }
+        }
+      }
+
+      $currentValues = @(@($currentValues) | Sort-Object -Unique)
+      $expectedValues = @(@($expectedValues) | Sort-Object -Unique)
+      $isValid = -not (Compare-Object -ReferenceObject $currentValues -DifferenceObject $expectedValues)
+      if ($null -ne $currentValue) {
+        $currentValue = $currentValues -join ","
+      }
+      $PolicyMeta.ExpectedValue = ($expectedValues -join ",")
     }
     Default {
       Exit-WithError "[$($PolicyInfo.Name)] Método de comparación '$($PolicyMeta.ComparisonMethod)' no soportado."
@@ -179,13 +219,35 @@ function Invoke-SecurityPolicy {
         # Apply the policy
         Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -NoConsole
         try {
-          $pattern = "^(?i)$($PolicyMeta.Property)\s*=\s*\S+"
-          $newContent = $lines -replace $pattern, ("{0} = {1}" -f $PolicyMeta.Property, $PolicyMeta.ExpectedValue)
+          $propPattern = "^(?i)\Q$($PolicyMeta.Property)\E\s*=\s*\S+"
+          if ($lines -match $propPattern) {
+            # The property exists: replace its value
+            $newContent = $lines -replace $propPattern, ("{0} = {1}" -f $PolicyMeta.Property, $PolicyMeta.ExpectedValue)
+          }
+          else {
+            # It does not exist: insert it after the header of the area ($PolicyMeta.Area), e.g. [Privilege Rights]
+            $areaPattern = "^(?i)\[\Q$($PolicyMeta.Area)\E\]\s*$"
+            $areaMatch = $lines | Select-String -Pattern $areaPattern | Select-Object -First 1
+            if ($areaMatch) {
+              $insertAt = $areaMatch.LineNumber
+              $tmp = New-Object System.Collections.Generic.List[string]
+              for ($i = 0; $i -lt $lines.Count; $i++) {
+                [void]$tmp.Add($lines[$i])
+                if ($i -eq ($insertAt - 1)) {
+                  [void]$tmp.Add(("{0} = {1}" -f $PolicyMeta.Property, $PolicyMeta.ExpectedValue))
+                }
+              }
+              $newContent = $tmp
+            }
+            else {
+              Exit-WithError "[$($PolicyInfo.Name)] No se ha encontrado el área '$($PolicyMeta.Area)' en el archivo de configuración de seguridad del sistema. No se puede aplicar la política."
+            }
+          }
           # Write the new content to the temp file and use it to import the new policy
           $newContent | Set-Content -Path $tempFilePath -ErrorAction Stop
           & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            Exit-WithError "[$($PolicyInfo.Name)] Error al aplicar la política. Consultar el registro %windir%\security\logs\scesrv.log para obtener información detallada."
+            Exit-WithError "[$($PolicyInfo.Name)] Error al aplicar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
           }
           Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
         }
@@ -200,11 +262,36 @@ function Invoke-SecurityPolicy {
         if ($Backup.ContainsKey($PolicyInfo.Name)) {
           $backupValue = $Backup[$PolicyInfo.Name]
           if ($backupValue -ne $currentValue) {
-            $pattern = "^(?i)$($PolicyMeta.Property)\s*=\s*\S+"
-            $newContent = $lines -replace $pattern, ("{0} = {1}" -f $PolicyMeta.Property, $backupValue)
+            $propPattern = "^(?i)\Q$($PolicyMeta.Property)\E\s*=\s*\S+"
+            if ($lines -match $propPattern) {
+              # The property exists: replace its value
+              $newContent = $lines -replace $propPattern, ("{0} = {1}" -f $PolicyMeta.Property, $backupValue)
+            }
+            else {
+              # It does not exist: insert it after the header of the area ($PolicyMeta.Area), e.g. [Privilege Rights]
+              $areaPattern = "^(?i)\[\Q$($PolicyMeta.Area)\E\]\s*$"
+              $areaMatch = $lines | Select-String -Pattern $areaPattern | Select-Object -First 1
+              if ($areaMatch) {
+                $insertAt = $areaMatch.LineNumber
+                $tmp = New-Object System.Collections.Generic.List[string]
+                for ($i = 0; $i -lt $lines.Count; $i++) {
+                  [void]$tmp.Add($lines[$i])
+                  if ($i -eq ($insertAt - 1)) {
+                    [void]$tmp.Add(("{0} = {1}" -f $PolicyMeta.Property, $backupValue))
+                  }
+                }
+                $newContent = $tmp
+              }
+              else {
+                Exit-WithError "[$($PolicyInfo.Name)] No se ha encontrado el área '$($PolicyMeta.Area)' en el archivo de configuración de seguridad del sistema. No se puede aplicar la política."
+              }
+            }
             # Write the new content to the temp file and use it to import the new policy
             $newContent | Set-Content -Path $tempFilePath -ErrorAction Stop
             & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              Exit-WithError "[$($PolicyInfo.Name)] Error al restaurar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
+            }
           }
           Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada."
         }

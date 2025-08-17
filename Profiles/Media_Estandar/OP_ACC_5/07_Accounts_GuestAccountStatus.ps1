@@ -9,6 +9,7 @@ $PolicyMeta = [PSCustomObject]@{
   Name             = '07_Accounts_GuestAccountStatus'
   Description      = 'Cuentas: estado de la cuenta de invitado'
   Type             = 'Security'
+  Area             = 'System Access'
   Property         = 'EnableGuestAccount'
   ExpectedValue    = 0
   ComparisonMethod = 'AllowedValues'

@@ -14,6 +14,7 @@ $PolicyMeta = [PSCustomObject]@{
   Name             = '02_AccountLockoutDuration'
   Description      = 'Duración del bloqueo de cuenta'
   Type             = 'Security'
+  Area             = 'System Access'
   Property         = 'LockoutDuration'
   ExpectedValue    = -1
   ComparisonMethod = 'AllowedValues'

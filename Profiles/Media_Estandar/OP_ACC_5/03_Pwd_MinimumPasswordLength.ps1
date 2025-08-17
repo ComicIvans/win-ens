@@ -9,6 +9,7 @@ $PolicyMeta = [PSCustomObject]@{
   Name             = '03_Pwd_MinimumPasswordLength'
   Description      = 'Longitud mínima de la contraseña'
   Type             = 'Security'
+  Area             = 'System Access'
   Property         = 'MinimumPasswordLength'
   ExpectedValue    = 10
   ComparisonMethod = 'GreaterOrEqual'

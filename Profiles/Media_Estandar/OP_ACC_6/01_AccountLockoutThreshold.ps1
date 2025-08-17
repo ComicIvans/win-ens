@@ -9,6 +9,7 @@ $PolicyMeta = [PSCustomObject]@{
   Name             = '01_AccountLockoutThreshold'
   Description      = 'Umbral de bloqueo de cuenta'
   Type             = 'Security'
+  Area             = 'System Access'
   Property         = 'LockoutBadCount'
   ExpectedValue    = 5
   ComparisonMethod = 'LessOrEqual'
