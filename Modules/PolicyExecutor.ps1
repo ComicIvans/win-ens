@@ -14,13 +14,23 @@ function Invoke-RegistryPolicy {
     [PSCustomObject]$Backup
   )
 
+  # Get current registry value
   try {
     $currentValue = (Get-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -ErrorAction Stop) | Select-Object -ExpandProperty $PolicyMeta.Property
+    if ($null -eq $currentValue) {
+      if ($PolicyMeta.ValueKind -eq "MultiString") {
+        $currentValue = @()
+      }
+      elseif ($PolicyMeta.ValueKind -eq "String") {
+        $currentValue = ""
+      }
+    }
   }
   catch {
     $currentValue = $null
   }
 
+  # Validate current value against policy
   $isValid = $false
 
   switch ($PolicyMeta.ComparisonMethod) {
@@ -34,13 +44,57 @@ function Invoke-RegistryPolicy {
         }
       }
     }
+    "GreaterOrEqual" {
+      if ($null -ne $currentValue -and $currentValue -ge $PolicyMeta.ExpectedValue) {
+        if (-not $Global:Config.EnforceMinimumPolicyValues -or $currentValue -eq $PolicyMeta.ExpectedValue) {
+          $isValid = $true
+        }
+      }
+    }
+    "LessOrEqual" {
+      if ($null -ne $currentValue -and $currentValue -le $PolicyMeta.ExpectedValue) {
+        if (-not $Global:Config.EnforceMinimumPolicyValues -or $currentValue -eq $PolicyMeta.ExpectedValue) {
+          $isValid = $true
+        }
+      }
+    }
+    "ExactSet" {
+      function ConvertTo-NormalizedSet {
+        param (
+          [Parameter(Mandatory)]
+          [object]$Source
+        )
+
+        if ($null -eq $Source) { return , @() }
+
+        $items =
+        if ($Source -is [string]) { $Source.Split(',', [System.StringSplitOptions]::RemoveEmptyEntries) }
+        elseif ($Source -is [System.Array]) { $Source }
+        else { @($Source) }
+
+        $tokens = foreach ($v in $items) {
+          $t = $v.ToString().Trim()
+          if (-not $t) { continue }
+          $t
+        }
+
+        return , (@(@($tokens) | Sort-Object -Unique))
+      }
+
+      # Normalize current and expected values to sets
+      $currentSet = ConvertTo-NormalizedSet -Source $currentValue
+      $expectedSet = ConvertTo-NormalizedSet -Source $PolicyMeta.ExpectedValue
+
+      # Compare as sets
+      $isValid = -not (Compare-Object -ReferenceObject $currentSet -DifferenceObject $expectedSet)
+    }
     Default {
       Exit-WithError "[$($PolicyInfo.Name)] Método de comparación '$($PolicyMeta.ComparisonMethod)' no soportado."
     }
   }
 
   switch ($Global:Info.Action) {
-    "Test" { 
+    "Test" {
       Show-TableRow -PolicyName "$($PolicyMeta.Description)" -ExpectedValue $PolicyMeta.ExpectedValue -CurrentValue $currentValue -ValidValue:$isValid
     }
     "Set" {
@@ -96,7 +150,7 @@ function Invoke-RegistryPolicy {
   }
 }
 
-# Handles de the execution of secutiy policies using secedit
+# Handles the execution of security policies using secedit
 function Invoke-SecurityPolicy {
   param (
     [Parameter(Mandatory = $true)]
@@ -110,7 +164,7 @@ function Invoke-SecurityPolicy {
   $tempFolder = Join-Path $PSScriptRoot "..\Temp"
   $tempFilePath = Join-Path $tempFolder "secpol.cfg"
 
-  # Export security policy
+  # Export security policy and read current configuration
   try {
     & secedit /export /cfg $tempFilePath | Out-Null
     $lines = Get-Content -Path $tempFilePath -ErrorAction Stop
@@ -121,10 +175,16 @@ function Invoke-SecurityPolicy {
 
   # Get the current value of the property
   $currentValue = $null
-  $propLine = $lines | Where-Object { $_ -match "^(?i)$($PolicyMeta.Property)\s*=" } | Select-Object -First 1
+  $escapedPropForRead = [regex]::Escape($PolicyMeta.Property)
+  $propLine = $lines | Where-Object { $_ -match "^(?i)$escapedPropForRead\s*=" } | Select-Object -First 1
   if ($propLine -and $propLine -match "=\s*(\S+)") {
     $rawVal = $Matches[1]
-    if ($rawVal -match '^\d+$') { $currentValue = [int]$rawVal } else { $currentValue = $rawVal }
+    if ($rawVal -match '^\d+$') { 
+      $currentValue = [int]$rawVal 
+    } 
+    else { 
+      $currentValue = $rawVal 
+    }
   }
 
   $isValid = $false
@@ -151,51 +211,52 @@ function Invoke-SecurityPolicy {
       }
     }
     "PrivilegeSet" {
-      if ($null -ne $currentValue) {
-        $currentValues = foreach ($value in $currentValue.Split(",")) {
-          if ($value[0] -eq '*') {
-            $value
-          }
-          else {
-            try {
-              $sid = (New-Object System.Security.Principal.NTAccount($value)).Translate([System.Security.Principal.SecurityIdentifier]).Value
-              "*$sid"
-            }
-            catch {
-              Exit-WithError -Message "[$($PolicyInfo.Name)] No se pudo convertir '$value', presente en '$tempFilePath', a su SID: $($_.Exception.Message)"
-            }
-          }
-        }
-      }
-      else {
-        $currentValues = @()
-      }
+      function ConvertTo-SidToken {
+        param(
+          [string]$Identity,
+          [string]$context
+        )
 
-      $expectedValues = foreach ($value in $PolicyMeta.ExpectedValue) {
-        $value.ToString().Trim()
-      }
-      $expectedValues = foreach ($value in $expectedValues) {
-        if ($value[0] -eq '*') {
-          $value
+        try {
+          $sid = (New-Object System.Security.Principal.NTAccount($Identity)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+          return "*$sid"
         }
-        else {
-          try {
-            $sid = (New-Object System.Security.Principal.NTAccount($value)).Translate([System.Security.Principal.SecurityIdentifier]).Value
-            "*$sid"
-          }
-          catch {
-            Exit-WithError -Message "[$($PolicyInfo.Name)] No se pudo convertir '$value', presente en el archivo de configuración de seguridad del sistema, a su SID: $($_.Exception.Message)"
-          }
+        catch {
+          Exit-WithError -Message "[$($PolicyInfo.Name)] No se pudo convertir '$Identity', $context, a su SID: $($_.Exception.Message)"
         }
       }
 
-      $currentValues = @(@($currentValues) | Sort-Object -Unique)
-      $expectedValues = @(@($expectedValues) | Sort-Object -Unique)
-      $isValid = -not (Compare-Object -ReferenceObject $currentValues -DifferenceObject $expectedValues)
-      if ($null -ne $currentValue) {
-        $currentValue = $currentValues -join ","
+      function ConvertTo-NormalizedPrivilegeSet {
+        param(
+          [object]$Source,
+          [string]$contextForErrors
+        )
+        
+        if ($null -eq $Source) { return , @() }
+
+        $items =
+        if ($Source -is [string]) { $Source.Split(',', [System.StringSplitOptions]::RemoveEmptyEntries) }
+        elseif ($Source -is [System.Array]) { $Source }
+        else { @($Source) }
+
+        $tokens = foreach ($raw in $items) {
+          $t = $raw.ToString().Trim()
+          if (-not $t) { continue }
+          if ($t[0] -eq '*') { $t } else { ConvertTo-SidToken -Identity $t -context $contextForErrors }
+        }
+
+        return , (@(@($tokens) | Sort-Object -Unique))
       }
-      $PolicyMeta.ExpectedValue = ($expectedValues -join ",")
+
+      $currentSet = ConvertTo-NormalizedPrivilegeSet -Source $currentValue -contextForErrors "presente en '$tempFilePath'"
+      $expectedSet = ConvertTo-NormalizedPrivilegeSet -Source $PolicyMeta.ExpectedValue -contextForErrors "presente en el archivo de configuración de seguridad del sistema"
+      
+      $isValid = -not (Compare-Object -ReferenceObject $currentSet -DifferenceObject $expectedSet)
+
+      if ($null -ne $currentValue) {
+        $currentValue = $currentSet -join ","
+      }
+      $PolicyMeta.ExpectedValue = ($expectedSet -join ",")
     }
     Default {
       Exit-WithError "[$($PolicyInfo.Name)] Método de comparación '$($PolicyMeta.ComparisonMethod)' no soportado."
@@ -219,14 +280,16 @@ function Invoke-SecurityPolicy {
         # Apply the policy
         Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -NoConsole
         try {
-          $propPattern = "^(?i)\Q$($PolicyMeta.Property)\E\s*=\s*\S+"
+          $escapedProp = [regex]::Escape($PolicyMeta.Property)
+          $propPattern = "^(?i)$escapedProp\s*=\s*\S+"
           if ($lines -match $propPattern) {
             # The property exists: replace its value
             $newContent = $lines -replace $propPattern, ("{0} = {1}" -f $PolicyMeta.Property, $PolicyMeta.ExpectedValue)
           }
           else {
             # It does not exist: insert it after the header of the area ($PolicyMeta.Area), e.g. [Privilege Rights]
-            $areaPattern = "^(?i)\[\Q$($PolicyMeta.Area)\E\]\s*$"
+            $escapedArea = [regex]::Escape($PolicyMeta.Area)
+            $areaPattern = "^(?i)\[$escapedArea\]\s*$"
             $areaMatch = $lines | Select-String -Pattern $areaPattern | Select-Object -First 1
             if ($areaMatch) {
               $insertAt = $areaMatch.LineNumber
@@ -244,7 +307,7 @@ function Invoke-SecurityPolicy {
             }
           }
           # Write the new content to the temp file and use it to import the new policy
-          $newContent | Set-Content -Path $tempFilePath -ErrorAction Stop
+          $newContent | Set-Content -Path $tempFilePath -Encoding Unicode -ErrorAction Stop
           & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath | Out-Null
           if ($LASTEXITCODE -ne 0) {
             Exit-WithError "[$($PolicyInfo.Name)] Error al aplicar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
@@ -262,14 +325,16 @@ function Invoke-SecurityPolicy {
         if ($Backup.ContainsKey($PolicyInfo.Name)) {
           $backupValue = $Backup[$PolicyInfo.Name]
           if ($backupValue -ne $currentValue) {
-            $propPattern = "^(?i)\Q$($PolicyMeta.Property)\E\s*=\s*\S+"
+            $escapedProp = [regex]::Escape($PolicyMeta.Property)
+            $propPattern = "^(?i)$escapedProp\s*=\s*\S+"
             if ($lines -match $propPattern) {
               # The property exists: replace its value
               $newContent = $lines -replace $propPattern, ("{0} = {1}" -f $PolicyMeta.Property, $backupValue)
             }
             else {
               # It does not exist: insert it after the header of the area ($PolicyMeta.Area), e.g. [Privilege Rights]
-              $areaPattern = "^(?i)\[\Q$($PolicyMeta.Area)\E\]\s*$"
+              $escapedArea = [regex]::Escape($PolicyMeta.Area)
+              $areaPattern = "^(?i)\[$escapedArea\]\s*$"
               $areaMatch = $lines | Select-String -Pattern $areaPattern | Select-Object -First 1
               if ($areaMatch) {
                 $insertAt = $areaMatch.LineNumber
@@ -287,7 +352,7 @@ function Invoke-SecurityPolicy {
               }
             }
             # Write the new content to the temp file and use it to import the new policy
-            $newContent | Set-Content -Path $tempFilePath -ErrorAction Stop
+            $newContent | Set-Content -Path $tempFilePath -Encoding Unicode -ErrorAction Stop
             & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath | Out-Null
             if ($LASTEXITCODE -ne 0) {
               Exit-WithError "[$($PolicyInfo.Name)] Error al restaurar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
