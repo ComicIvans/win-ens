@@ -17,6 +17,7 @@ $CustomPolicyMetaTemplate = [PSCustomObject]@{
   Name        = ''
   Description = ''
   Type        = 'Custom'
+  IsValid     = $null
 }
 
 # Template for RegistryPolicyMeta

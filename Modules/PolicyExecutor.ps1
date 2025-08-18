@@ -11,7 +11,7 @@ function Invoke-RegistryPolicy {
     [Parameter(Mandatory = $true)]
     [PSCustomObject]$PolicyMeta,
     [Parameter(Mandatory = $true)]
-    [PSCustomObject]$Backup
+    [System.Collections.IDictionary]$Backup
   )
 
   # Get current registry value
@@ -158,7 +158,7 @@ function Invoke-SecurityPolicy {
     [Parameter(Mandatory = $true)]
     [PSCustomObject]$PolicyMeta,
     [Parameter(Mandatory = $true)]
-    [PSCustomObject]$Backup
+    [System.Collections.IDictionary]$Backup
   )
 
   $tempFolder = Join-Path $PSScriptRoot "..\Temp"
@@ -322,7 +322,7 @@ function Invoke-SecurityPolicy {
     "Restore" {
       Show-Info -Message "[$($PolicyInfo.Name)] Restaurando copia de respaldo..." -NoConsole
       try {
-        if ($Backup.ContainsKey($PolicyInfo.Name)) {
+        if ($Backup.Contains($PolicyInfo.Name)) {
           $backupValue = $Backup[$PolicyInfo.Name]
           if ($backupValue -ne $currentValue) {
             $escapedProp = [regex]::Escape($PolicyMeta.Property)
@@ -374,4 +374,91 @@ function Invoke-SecurityPolicy {
   }
 
   Remove-Item -Path $tempFilePath -ErrorAction SilentlyContinue
+}
+
+# Handles the execution of custom policies
+function Invoke-CustomPolicy {
+  param (
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject]$PolicyInfo,
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject]$PolicyMeta,
+    [Parameter(Mandatory = $true)]
+    [System.Collections.IDictionary]$Backup
+  )
+
+  # Check if the required functions are defined: Initialize-Policy, Test-Policy, Backup-Policy, Set-Policy and Restore-Policy
+  $requiredFunctions = @(
+    "Initialize-Policy",
+    "Test-Policy",
+    "Backup-Policy",
+    "Set-Policy",
+    "Restore-Policy"
+  )
+
+  foreach ($function in $requiredFunctions) {
+    if (-not (Get-Command -Name $function -ErrorAction SilentlyContinue)) {
+      Exit-WithError "[$($PolicyInfo.Name)] La función '$function' no está definida en la política."
+    }
+  }
+
+  # Initialize the policy
+  try {
+    Initialize-Policy
+  }
+  catch {
+    Exit-WithError "[$($PolicyInfo.Name)] Error al inicializar la política: $_"
+  }
+
+  # Perform the action
+  switch ($Global:Info.Action) {
+    "Test" {
+      try {
+        Test-Policy
+      }
+      catch {
+        Exit-WithError "[$($PolicyInfo.Name)] Error al comprobar la política: $_"
+      }
+    }
+    "Set" {
+      if ($PolicyMeta.IsValid) {
+        Show-Info -Message "[$($PolicyInfo.Name)] La política ya cumplía con el perfil."
+      }
+      else {
+        Show-Info -Message "[$($PolicyInfo.Name)] Creando copia de respaldo..." -NoConsole
+        try {
+          Backup-Policy
+        }
+        catch {
+          Exit-WithError "[$($PolicyInfo.Name)] Error al crear la copia de respaldo: $_"
+        }
+        Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -NoConsole
+        try {
+          Set-Policy
+        }
+        catch {
+          Exit-WithError "[$($PolicyInfo.Name)] Error al ajustar la política: $_"
+        }
+        Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
+      }
+    }
+    "Restore" {
+      Show-Info -Message "[$($PolicyInfo.Name)] Restaurando copia de respaldo..." -NoConsole
+      try {
+        Restore-Policy
+      }
+      catch {
+        Exit-WithError "[$($PolicyInfo.Name)] Error al restaurar la política: $_"
+      }
+      Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada correctamente."
+    }
+    Default {
+      Exit-WithError "[$($PolicyInfo.Name)] Acción '$($Global:Info.Action)' no soportada."
+    }
+  }
+
+  # Clean all required functions
+  foreach ($function in $requiredFunctions) {
+    Remove-Item Function:\$function -ErrorAction SilentlyContinue
+  }
 }

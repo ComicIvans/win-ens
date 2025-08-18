@@ -238,26 +238,14 @@ function Invoke-Group {
       Save-GlobalInfo
       Show-Info -Message "[$($PolicyInfo.Name)] Ejecutando política..." -NoConsole
 
-      if ($PolicyMeta.Type -eq "Custom") {
-        # Check if the required function is defined
-        if (-not (Get-Command -Name "Invoke-CustomPolicy" -ErrorAction SilentlyContinue)) {
-          Exit-WithError "[$($PolicyInfo.Name)] La función 'Invoke-CustomPolicy' no está definida en la política."
-        }
 
-        Invoke-CustomPolicy -PolicyInfo $PolicyInfo -Backup $backup
-
-        # Remove the function after execution to avoid conflicts
-        Remove-Item Function:\Invoke-CustomPolicy
+      # Look for policy-specific invoke function
+      $invokeFunction = "Invoke-$($PolicyMeta.Type)Policy"
+      if (Get-Command -Name $invokeFunction -ErrorAction SilentlyContinue) {
+        & $invokeFunction -PolicyInfo $PolicyInfo -PolicyMeta $PolicyMeta -Backup $backup
       }
       else {
-        # Look for policy-specific invoke function
-        $invokeFunction = "Invoke-$($PolicyMeta.Type)Policy"
-        if (Get-Command -Name $invokeFunction -ErrorAction SilentlyContinue) {
-          & $invokeFunction -PolicyInfo $PolicyInfo -PolicyMeta $PolicyMeta -Backup $backup
-        }
-        else {
-          Exit-WithError "[$($PolicyInfo.Name)] Tipo de política '$($PolicyMeta.Type)' no soportado."
-        }
+        Exit-WithError "[$($PolicyInfo.Name)] Tipo de política '$($PolicyMeta.Type)' no soportado."
       }
 
       # Remove the PolicyMeta variable
