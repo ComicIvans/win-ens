@@ -194,4 +194,13 @@ function Show-TableRow {
 
     $spacer = ("{0, -$col1} | {1, -$col2} | {2, -$col3}" -f "", "", "")
     Write-Host $spacer -ForegroundColor $rowColor
+
+    if ($Global:Config.SaveResultsAsCSV) {
+        # Escape double quotes and wrap each field in quotes
+        $csvP = '"' + ($PolicyName -replace '"', '""') + '"'
+        $csvE = '"' + ($ExpectedValue -replace '"', '""') + '"'
+        $csvC = '"' + ($CurrentValue -replace '"', '""') + '"'
+        $csvV = if ($rowColor -eq "Green") { $true } else { $false }
+        $Global:ResultsWriter.WriteLine("$($GroupInfo.Name),$($PolicyInfo.Name),$csvP,$csvE,$csvC,$csvV")
+    }
 }

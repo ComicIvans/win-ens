@@ -69,6 +69,14 @@ function Exit-WithPause {
     if ($Global:InfoFile) {
         $Global:InfoFile.Close()
     }
+    if ($Global:Config.SaveResultsAsCSV) {
+        if ($Global:ResultsWriter) {
+            $Global:ResultsWriter.Dispose()
+        }
+        if ($Global:ResultsFile) {
+            $Global:ResultsFile.Close()
+        }
+    }
 
     # Remove temp folder and its content
     Remove-Item -Path $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
@@ -245,7 +253,19 @@ function Select-ExecuteProfile {
     
     $profileName = "$category`_$info"
     
-    if (($Global:Info.Action -eq "Set")) {
+    if ($Global:Info.Action -eq "Test" -and $Global:Config.SaveResultsAsCSV) {
+        try {
+            $resultsFilePath = Join-Path $logsFolder "$($Global:Info.Timestamp)_$profileName.csv"
+            $Global:ResultsFile = [System.IO.File]::Open($resultsFilePath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+            $Global:ResultsWriter = [System.IO.StreamWriter]::new($Global:ResultsFile, [System.Text.Encoding]::UTF8)
+            $Global:ResultsWriter.AutoFlush = $true
+            $Global:ResultsWriter.WriteLine("Grupo,Política,Descripción,Esperado,Actual,Correcto")
+        }
+        catch {
+            Exit-WithError -Message "No se ha podido crear el archivo de resultados: $resultsFilePath. $_"
+        }
+    }
+    elseif (($Global:Info.Action -eq "Set")) {
         $backupFolderName = "$($Global:Info.Timestamp)`_$profileName"
         $Global:BackupFolderPath = Join-Path $backupsFolder $backupFolderName
         New-Item -Path $Global:BackupFolderPath -ItemType Directory | Out-Null

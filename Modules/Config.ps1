@@ -86,6 +86,7 @@ function Get-LocalConfig {
   $localConfig = [ordered]@{
     EnforceMinimumPolicyValues = $false
     TestOnlyEnabled            = $false
+    SaveResultsAsCSV           = $false
     ScriptsEnabled             = [ordered]@{}
   }
 
@@ -161,6 +162,7 @@ function Show-Config {
   $configDescriptions = @{
     EnforceMinimumPolicyValues = 'Si está activado, se fuerza el valor mínimo requerido por cada política, sobrescribiendo valores más seguros'
     TestOnlyEnabled            = 'Si está activado, las políticas desactivadas en la configuración tampoco se comprobarán con la acción "Test"'
+    SaveResultsAsCSV           = 'Si está activado, los resultados de comprobar un perfil se guardarán en un archivo CSV dentro del directorio "Logs"'
   }
 
   # Print all general config keys except ScriptsEnabled
