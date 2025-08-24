@@ -417,7 +417,13 @@ function Invoke-ServicePolicy {
           Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
         }
         catch {
-          Exit-WithError "[$($PolicyInfo.Name)] No se ha podido ajustar la política: $_"
+          $errMsg = $_.Exception.Message
+          if ($errMsg -match '(?i)acceso denegado|access is denied') {
+            Show-Warning -Message "[$($PolicyInfo.Name)] Servicio protegido. No se puede cambiar el tipo de inicio sin contexto SYSTEM/TrustedInstaller. Se omite."
+          }
+          else {
+            Exit-WithError "[$($PolicyInfo.Name)] No se ha podido ajustar la política: $_"
+          }
         }
       }
     }
@@ -428,7 +434,13 @@ function Invoke-ServicePolicy {
         Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada."
       }
       catch {
-        Exit-WithError "[$($PolicyInfo.Name)] No se ha podido restaurar la copia de respaldo: $_"
+        $errMsg = $_.Exception.Message
+        if ($errMsg -match '(?i)acceso denegado|access is denied') {
+          Show-Warning -Message "[$($PolicyInfo.Name)] Servicio protegido. No se puede restaurar el tipo de inicio sin contexto SYSTEM/TrustedInstaller. Se omite."
+        }
+        else {
+          Exit-WithError "[$($PolicyInfo.Name)] No se ha podido restaurar la copia de respaldo: $_"
+        }
       }
     }
     Default {
