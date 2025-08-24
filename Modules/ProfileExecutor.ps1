@@ -113,7 +113,7 @@ function Invoke-Group {
   # Get all .ps1 files in the folder
   $policyScripts = Get-ChildItem -Path $groupPath -Filter "*.ps1"
 
-  if ($Global:Info.Action -eq "Test" -and $Global:Config.TestOnlyEnabled) {
+  if ($Global:Info.Action -eq "Set" -or ($Global:Info.Action -eq "Test" -and $Global:Config.TestOnlyEnabled)) {
     # Check if all policies in the group are disabled.
     $anyEnabled = $false
     foreach ($script in $policyScripts) {
