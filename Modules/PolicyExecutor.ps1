@@ -417,12 +417,25 @@ function Invoke-ServicePolicy {
           Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
         }
         catch {
-          $errMsg = $_.Exception.Message
-          if ($errMsg -match '(?i)acceso denegado|access is denied') {
-            Show-Warning -Message "[$($PolicyInfo.Name)] Servicio protegido. No se puede cambiar el tipo de inicio sin contexto SYSTEM/TrustedInstaller. Se omite."
+          # Fallback: try to set StartupType via registry 'Start' value
+          try {
+            $targetStart = switch ($PolicyMeta.ExpectedValue) {
+              'Automatic' { 2 }
+              'Manual' { 3 }
+              'Disabled' { 4 }
+              default { Exit-WithError "[$($PolicyInfo.Name)] Tipo de inicio esperado '$($PolicyMeta.ExpectedValue)' no soportado para ajuste por registro." }
+            }
+
+            $svcRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$($PolicyMeta.ServiceName)"
+            if (-not (Test-Path -Path $svcRegPath)) {
+              Exit-WithError "[$($PolicyInfo.Name)] No existe la clave de servicio en el registro: $svcRegPath"
+            }
+
+            New-ItemProperty -Path $svcRegPath -Name 'Start' -Value $targetStart -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+            Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
           }
-          else {
-            Exit-WithError "[$($PolicyInfo.Name)] No se ha podido ajustar la política: $_"
+          catch {
+            Exit-WithError "[$($PolicyInfo.Name)] No se ha podido ajustar la política a través del registro: $_"
           }
         }
       }
@@ -434,12 +447,18 @@ function Invoke-ServicePolicy {
         Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada."
       }
       catch {
-        $errMsg = $_.Exception.Message
-        if ($errMsg -match '(?i)acceso denegado|access is denied') {
-          Show-Warning -Message "[$($PolicyInfo.Name)] Servicio protegido. No se puede restaurar el tipo de inicio sin contexto SYSTEM/TrustedInstaller. Se omite."
+        # Fallback: try to set StartupType via registry 'Start' value
+        try {
+          $svcRegPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$($PolicyMeta.ServiceName)"
+          if (-not (Test-Path -Path $svcRegPath)) {
+            Exit-WithError "[$($PolicyInfo.Name)] No existe la clave de servicio en el registro: $svcRegPath"
+          }
+
+          New-ItemProperty -Path $svcRegPath -Name 'Start' -Value $Backup[$PolicyInfo.Name] -PropertyType DWord -Force -ErrorAction Stop | Out-Null
+          Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada."
         }
-        else {
-          Exit-WithError "[$($PolicyInfo.Name)] No se ha podido restaurar la copia de respaldo: $_"
+        catch {
+          Exit-WithError "[$($PolicyInfo.Name)] No se ha podido restaurar la copia de respaldo a través del registro: $_"
         }
       }
     }
