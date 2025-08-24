@@ -376,6 +376,67 @@ function Invoke-SecurityPolicy {
   Remove-Item -Path $tempFilePath -ErrorAction SilentlyContinue
 }
 
+# Handles the execution of service policies
+function Invoke-ServicePolicy {
+  param (
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject]$PolicyInfo,
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject]$PolicyMeta,
+    [Parameter(Mandatory = $true)]
+    [System.Collections.IDictionary]$Backup
+  )
+
+  try {
+    $currentValue = (Get-Service -Name $PolicyMeta.ServiceName -ErrorAction Stop).StartType
+  }
+  catch {
+    Exit-WithError "[$($PolicyInfo.Name)] No se pudo obtener el estado del servicio '$($PolicyMeta.ServiceName)': $_"
+  }
+
+  $isValid = $currentValue -eq $PolicyMeta.ExpectedValue
+
+  switch ($Global:Info.Action) {
+    "Test" {
+      Show-TableRow -PolicyName "$($PolicyMeta.Description)" -ExpectedValue $PolicyMeta.ExpectedValue -CurrentValue $currentValue -ValidValue:$isValid
+    }
+    "Set" {
+      if ($isValid) {
+        Show-Info -Message "[$($PolicyInfo.Name)] La política ya cumplía con el perfil."
+      }
+      else {
+        # Take a backup
+        Show-Info -Message "[$($PolicyInfo.Name)] Creando copia de respaldo..." -NoConsole
+        $Backup[$PolicyInfo.Name] = $currentValue
+        Save-Backup
+
+        # Apply the policy
+        Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -NoConsole
+        try {
+          Set-Service -Name $PolicyMeta.ServiceName -StartupType $PolicyMeta.ExpectedValue -ErrorAction Stop
+          Show-Success "[$($PolicyInfo.Name)] Política ajustada correctamente."
+        }
+        catch {
+          Exit-WithError "[$($PolicyInfo.Name)] No se ha podido ajustar la política: $_"
+        }
+      }
+    }
+    "Restore" {
+      Show-Info -Message "[$($PolicyInfo.Name)] Restaurando copia de respaldo..." -NoConsole
+      try {
+        Set-Service -Name $PolicyMeta.ServiceName -StartupType $Backup[$PolicyInfo.Name] -ErrorAction Stop
+        Show-Success "[$($PolicyInfo.Name)] Copia de respaldo restaurada."
+      }
+      catch {
+        Exit-WithError "[$($PolicyInfo.Name)] No se ha podido restaurar la copia de respaldo: $_"
+      }
+    }
+    Default {
+      Exit-WithError "[$($PolicyInfo.Name)] Acción '$($Global:Info.Action)' no soportada."
+    }
+  }
+}
+
 # Handles the execution of custom policies
 function Invoke-CustomPolicy {
   param (

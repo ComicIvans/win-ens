@@ -45,3 +45,13 @@ $SecurityPolicyMetaTemplate = [PSCustomObject]@{
   ExpectedValue    = $null
   ComparisonMethod = ''
 }
+
+# Template for ServicePolicyMeta
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+$ServicePolicyMetaTemplate = [PSCustomObject]@{
+  Name          = ''
+  Description   = ''
+  Type          = 'Service'
+  ServiceName   = ''
+  ExpectedValue = ''
+}
