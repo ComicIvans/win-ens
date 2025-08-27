@@ -215,44 +215,31 @@ function Show-ActionMenu {
     return Read-Host -Prompt "Introduce la opción"
 }
 
-# Function to select category and information rating, then execute the profile
+# Function to select a profile by listing folders under Profiles\, then execute it
 function Select-ExecuteProfile {
-    Write-Host "`nSelecciona categoría del sistema:"
-    Write-Host "1) Media"
-    Write-Host "2) Alta"
-    $catChoice = Read-Host
-    switch ($catChoice) {
-        "1" { $category = "Media" }
-        "2" { $category = "Alta" }
-        default { Exit-WithError "Categoría del sistema no válida." }
+    $profilesPath = Join-Path $PSScriptRoot "Profiles"
+    $profileFolders = Get-ChildItem $profilesPath -Directory | Sort-Object Name
+
+    if (-not $profileFolders) {
+        Exit-WithError "No hay perfiles disponibles en: $profilesPath"
     }
-    
-    if ($category -eq "Media") {
-        Write-Host "`nSelecciona la calificación de la información:"
-        Write-Host "1) Estándar"
-        Write-Host "2) Uso Oficial"
-        $infoChoice = Read-Host
-        switch ($infoChoice) {
-            "1" { $info = "Estandar" }
-            "2" { $info = "UsoOficial" }
-            default { Exit-WithError "Calificación de la información no válida." }
-        }
+
+    Write-Host "`nPerfiles disponibles:"
+    Write-Host ""
+    for ($i = 0; $i -lt $profileFolders.Count; $i++) {
+        Write-Host ("{0}) {1}" -f ($i + 1), $profileFolders[$i].Name) -ForegroundColor DarkCyan
     }
-    elseif ($category -eq "Alta") {
-        Write-Host "`nSelecciona la calificación de la información:"
-        Write-Host "1) Uso Oficial"
-        $infoChoice = Read-Host
-        switch ($infoChoice) {
-            "1" { $info = "UsoOficial" }
-            default { Exit-WithError "Calificación de la información no válida." }
-        }
+    Write-Host ""
+    $sel = Read-Host -Prompt "Selecciona el perfil a aplicar (número)"
+    [int]$selIndex = $sel - 1
+
+    if ($selIndex -lt 0 -or $selIndex -ge $profileFolders.Count) {
+        Exit-WithError "Perfil seleccionado no válido."
     }
-    else {
-        Exit-WithError "Categoría del sistema no soportada."
-    }
-    
-    $profileName = "$category`_$info"
-    
+
+    $selectedProfile = $profileFolders[$selIndex]
+    $profileName = $selectedProfile.Name
+
     if ($Global:Info.Action -eq "Test" -and $Global:Config.SaveResultsAsCSV) {
         try {
             $resultsFilePath = Join-Path $logsFolder "$($Global:Info.Timestamp)_$profileName.csv"
@@ -265,12 +252,12 @@ function Select-ExecuteProfile {
             Exit-WithError -Message "No se ha podido crear el archivo de resultados: $resultsFilePath. $_"
         }
     }
-    elseif (($Global:Info.Action -eq "Set")) {
+    elseif ($Global:Info.Action -eq "Set") {
         $backupFolderName = "$($Global:Info.Timestamp)`_$profileName"
         $Global:BackupFolderPath = Join-Path $backupsFolder $backupFolderName
         New-Item -Path $Global:BackupFolderPath -ItemType Directory | Out-Null
     }
-    
+
     Invoke-Profile -ProfileName $profileName
 
     Write-Host ""
