@@ -1,16 +1,17 @@
 ﻿###############################################################################
-# 12_NetSec_RestrictNTLM_AuditIncoming.ps1
-# Seguridad de red: restringir NTLM: auditar el tráfico NTLM entrante
+# 04_NetServer_SPNTargetNameValidation.ps1
+# Servidor de red Microsoft: nivel de validación de nombres
+# de destino SPN del servidor
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name             = '12_NetSec_RestrictNTLM_AuditIncoming'
-  Description      = 'Seguridad de red: restringir NTLM: auditar el tráfico NTLM entrante'
+  Name             = '04_NetServer_SPNTargetNameValidation'
+  Description      = 'Servidor de red Microsoft: nivel de validación de nombres de destino SPN del servidor'
   Type             = 'Registry'
-  Path             = 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\MSV1_0'
-  Property         = 'AuditReceivingNTLMTraffic'
+  Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters'
+  Property         = 'SmbServerNameHardeningLevel'
   ExpectedValue    = 2
   ValueKind        = 'DWord'
   ComparisonMethod = 'AllowedValues'

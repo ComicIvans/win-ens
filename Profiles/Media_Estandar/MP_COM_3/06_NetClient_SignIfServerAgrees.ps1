@@ -1,16 +1,16 @@
 ﻿###############################################################################
-# 01_NetServer_SignIfClientAgrees.ps1
-# Servidor de red Microsoft: firmar digitalmente las comunicaciones
-# (si el cliente lo permite)
+# 06_NetClient_SignIfServerAgrees.ps1
+# Cliente de redes de Microsoft: firmar digitalmente las comunicaciones
+# (si el servidor lo permite)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name             = '01_NetServer_SignIfClientAgrees'
-  Description      = 'Servidor de red Microsoft: firmar digitalmente las comunicaciones (si el cliente lo permite)'
+  Name             = '06_NetClient_SignIfServerAgrees'
+  Description      = 'Cliente de redes de Microsoft: firmar digitalmente las comunicaciones (si el servidor lo permite)'
   Type             = 'Registry'
-  Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters'
+  Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters'
   Property         = 'EnableSecuritySignature'
   ExpectedValue    = 1
   ValueKind        = 'DWord'

@@ -1,17 +1,17 @@
 ﻿###############################################################################
-# 07_DomainMember_RequireStrongKey.ps1
-# Miembro de dominio: requerir clave de sesión segura
-# (Windows 2000 o posterior)
+# 03_NetServer_SignIfClientAgrees.ps1
+# Servidor de red Microsoft: firmar digitalmente las comunicaciones
+# (si el cliente lo permite)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name             = '07_DomainMember_RequireStrongKey'
-  Description      = 'Miembro de dominio: requerir clave de sesión segura (Windows 2000 o posterior)'
+  Name             = '03_NetServer_SignIfClientAgrees'
+  Description      = 'Servidor de red Microsoft: firmar digitalmente las comunicaciones (si el cliente lo permite)'
   Type             = 'Registry'
-  Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
-  Property         = 'RequireStrongKey'
+  Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters'
+  Property         = 'EnableSecuritySignature'
   ExpectedValue    = 1
   ValueKind        = 'DWord'
   ComparisonMethod = 'AllowedValues'

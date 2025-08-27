@@ -1,19 +1,19 @@
 ﻿###############################################################################
-# 08_DomainMember_SealWhenPossible.ps1
-# Miembro de dominio: cifrar digitalmente datos de un canal seguro
-# (cuando sea posible)
+# 09_NetSec_RestrictNTLM_AuditInDomain.ps1
+# Seguridad de red: restringir NTLM: auditar la autenticación NTLM
+# en este dominio
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name             = '08_DomainMember_SealWhenPossible'
-  Description      = 'Miembro de dominio: cifrar digitalmente datos de un canal seguro (cuando sea posible)'
+  Name             = '09_NetSec_RestrictNTLM_AuditInDomain'
+  Description      = 'Seguridad de red: restringir NTLM: auditar la autenticación NTLM en este dominio'
   Type             = 'Registry'
   Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
-  Property         = 'SealSecureChannel'
-  ExpectedValue    = 1
+  Property         = 'AuditNtlmInDomain'
+  ExpectedValue    = 7
   ValueKind        = 'DWord'
   ComparisonMethod = 'AllowedValues'
-  AllowedValues    = @(1)
+  AllowedValues    = @(7)
 }

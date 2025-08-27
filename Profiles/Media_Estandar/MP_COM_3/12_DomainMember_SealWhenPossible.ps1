@@ -1,17 +1,17 @@
 ﻿###############################################################################
-# 03_NetClient_SignIfServerAgrees.ps1
-# Cliente de redes de Microsoft: firmar digitalmente las comunicaciones
-# (si el servidor lo permite)
+# 12_DomainMember_SealWhenPossible.ps1
+# Miembro de dominio: cifrar digitalmente datos de un canal seguro
+# (cuando sea posible)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name             = '03_NetClient_SignIfServerAgrees'
-  Description      = 'Cliente de redes de Microsoft: firmar digitalmente las comunicaciones (si el servidor lo permite)'
+  Name             = '12_DomainMember_SealWhenPossible'
+  Description      = 'Miembro de dominio: cifrar digitalmente datos de un canal seguro (cuando sea posible)'
   Type             = 'Registry'
-  Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\LanmanWorkstation\Parameters'
-  Property         = 'EnableSecuritySignature'
+  Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
+  Property         = 'SealSecureChannel'
   ExpectedValue    = 1
   ValueKind        = 'DWord'
   ComparisonMethod = 'AllowedValues'

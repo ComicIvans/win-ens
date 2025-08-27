@@ -1,19 +1,19 @@
 ﻿###############################################################################
-# 10_NetSec_RestrictNTLM_AuditInDomain.ps1
-# Seguridad de red: restringir NTLM: auditar la autenticación NTLM
-# en este dominio
+# 11_DomainMember_RequireStrongKey.ps1
+# Miembro de dominio: requerir clave de sesión segura
+# (Windows 2000 o posterior)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name             = '10_NetSec_RestrictNTLM_AuditInDomain'
-  Description      = 'Seguridad de red: restringir NTLM: auditar la autenticación NTLM en este dominio'
+  Name             = '11_DomainMember_RequireStrongKey'
+  Description      = 'Miembro de dominio: requerir clave de sesión segura (Windows 2000 o posterior)'
   Type             = 'Registry'
   Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\Netlogon\Parameters'
-  Property         = 'AuditNtlmInDomain'
-  ExpectedValue    = 7
+  Property         = 'RequireStrongKey'
+  ExpectedValue    = 1
   ValueKind        = 'DWord'
   ComparisonMethod = 'AllowedValues'
-  AllowedValues    = @(7)
+  AllowedValues    = @(1)
 }
