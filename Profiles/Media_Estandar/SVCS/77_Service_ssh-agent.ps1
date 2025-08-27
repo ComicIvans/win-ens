@@ -1,14 +1,14 @@
 ﻿###############################################################################
-# 32_Service_CertPropSvc.ps1
-# Propagación de certificados (CertPropSvc)
+# 77_Service_ssh-agent.ps1
+# OpenSSH Authentication Agent (ssh-agent)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name          = '32_Service_CertPropSvc'
-  Description   = 'Propagación de certificados (CertPropSvc)'
+  Name          = '77_Service_ssh-agent'
+  Description   = 'OpenSSH Authentication Agent (ssh-agent)'
   Type          = 'Service'
-  ServiceName   = 'CertPropSvc'
-  ExpectedValue = 'Automatic'
+  ServiceName   = 'ssh-agent'
+  ExpectedValue = 'Disabled'
 }

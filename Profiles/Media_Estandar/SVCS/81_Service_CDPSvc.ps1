@@ -1,14 +1,14 @@
 ﻿###############################################################################
-# 32_Service_CertPropSvc.ps1
-# Propagación de certificados (CertPropSvc)
+# 81_Service_CDPSvc.ps1
+# Servicio de plataforma de dispositivos conectados (CDPSvc)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name          = '32_Service_CertPropSvc'
-  Description   = 'Propagación de certificados (CertPropSvc)'
+  Name          = '81_Service_CDPSvc'
+  Description   = 'Servicio de plataforma de dispositivos conectados (CDPSvc)'
   Type          = 'Service'
-  ServiceName   = 'CertPropSvc'
+  ServiceName   = 'CDPSvc'
   ExpectedValue = 'Automatic'
 }

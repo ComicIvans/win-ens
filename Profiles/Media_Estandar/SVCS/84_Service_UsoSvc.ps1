@@ -1,14 +1,14 @@
 ﻿###############################################################################
-# 32_Service_CertPropSvc.ps1
-# Propagación de certificados (CertPropSvc)
+# 84_Service_UsoSvc.ps1
+# Servicio orquestador de actualizaciones (UsoSvc)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name          = '32_Service_CertPropSvc'
-  Description   = 'Propagación de certificados (CertPropSvc)'
+  Name          = '84_Service_UsoSvc'
+  Description   = 'Servicio orquestador de actualizaciones (UsoSvc)'
   Type          = 'Service'
-  ServiceName   = 'CertPropSvc'
+  ServiceName   = 'UsoSvc'
   ExpectedValue = 'Automatic'
 }

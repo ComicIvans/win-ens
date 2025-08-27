@@ -1,14 +1,14 @@
 ﻿###############################################################################
-# 32_Service_CertPropSvc.ps1
-# Propagación de certificados (CertPropSvc)
+# 75_Service_MsKeyboardFilter.ps1
+# Filtro de teclado de Microsoft (MsKeyboardFilter)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name          = '32_Service_CertPropSvc'
-  Description   = 'Propagación de certificados (CertPropSvc)'
+  Name          = '75_Service_MsKeyboardFilter'
+  Description   = 'Filtro de teclado de Microsoft (MsKeyboardFilter)'
   Type          = 'Service'
-  ServiceName   = 'CertPropSvc'
-  ExpectedValue = 'Automatic'
+  ServiceName   = 'MsKeyboardFilter'
+  ExpectedValue = 'Disabled'
 }

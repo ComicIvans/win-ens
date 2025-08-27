@@ -1,14 +1,14 @@
 ﻿###############################################################################
-# 32_Service_CertPropSvc.ps1
-# Propagación de certificados (CertPropSvc)
+# 82_Service_WpnService.ps1
+# Servicio del sistema de notificaciones de inserción de Windows (WpnService)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name          = '32_Service_CertPropSvc'
-  Description   = 'Propagación de certificados (CertPropSvc)'
+  Name          = '82_Service_WpnService'
+  Description   = 'Servicio del sistema de notificaciones de inserción de Windows (WpnService)'
   Type          = 'Service'
-  ServiceName   = 'CertPropSvc'
+  ServiceName   = 'WpnService'
   ExpectedValue = 'Automatic'
 }

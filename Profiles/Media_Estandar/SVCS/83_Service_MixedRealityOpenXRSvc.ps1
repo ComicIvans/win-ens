@@ -1,14 +1,14 @@
 ﻿###############################################################################
-# 32_Service_CertPropSvc.ps1
-# Propagación de certificados (CertPropSvc)
+# 83_Service_MixedRealityOpenXRSvc.ps1
+# Servicio OpenXR de Windows Mixed Reality (MixedRealityOpenXRSvc)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name          = '32_Service_CertPropSvc'
-  Description   = 'Propagación de certificados (CertPropSvc)'
+  Name          = '83_Service_MixedRealityOpenXRSvc'
+  Description   = 'Servicio OpenXR de Windows Mixed Reality (MixedRealityOpenXRSvc)'
   Type          = 'Service'
-  ServiceName   = 'CertPropSvc'
-  ExpectedValue = 'Automatic'
+  ServiceName   = 'MixedRealityOpenXRSvc'
+  ExpectedValue = 'Disabled'
 }

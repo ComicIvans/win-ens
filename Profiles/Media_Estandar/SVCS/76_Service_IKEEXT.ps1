@@ -1,14 +1,14 @@
 ﻿###############################################################################
-# 32_Service_CertPropSvc.ps1
-# Propagación de certificados (CertPropSvc)
+# 76_Service_IKEEXT.ps1
+# Módulos de creación de claves de IPsec para IKE y AuthIP (IKEEXT)
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name          = '32_Service_CertPropSvc'
-  Description   = 'Propagación de certificados (CertPropSvc)'
+  Name          = '76_Service_IKEEXT'
+  Description   = 'Módulos de creación de claves de IPsec para IKE y AuthIP (IKEEXT)'
   Type          = 'Service'
-  ServiceName   = 'CertPropSvc'
-  ExpectedValue = 'Automatic'
+  ServiceName   = 'IKEEXT'
+  ExpectedValue = 'Manual'
 }
