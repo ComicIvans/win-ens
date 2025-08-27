@@ -119,5 +119,3 @@ Es **muy recomendable** implementar los nuevos archivos a partir de una copia de
 Se están añadiendo los scripts para cubrir todas las políticas de las categorías "Media" y "Alta" y las calificaciones "Estándar" y "Uso Oficial".
 
 Posteriormente, se pueden plantear alternativas a la ejecución interactiva como la ejecución mediante parámetros.
-
-Una vez se complete eso, se estudiará la posibilidad de crear una aplicación de escritorio que permita un uso más amigable y muestre los resultados de forma más bonita.
