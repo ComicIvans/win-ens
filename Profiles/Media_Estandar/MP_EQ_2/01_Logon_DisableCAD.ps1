@@ -1,12 +1,12 @@
 ﻿###############################################################################
-# 04_Logon_DisableCAD.ps1
+# 01_Logon_DisableCAD.ps1
 # Inicio de sesión interactivo: no requerir Ctrl+Alt+Supr
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name             = '04_Logon_DisableCAD'
+  Name             = '01_Logon_DisableCAD'
   Description      = 'Inicio de sesión interactivo: no requerir Ctrl+Alt+Supr'
   Type             = 'Registry'
   Path             = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'

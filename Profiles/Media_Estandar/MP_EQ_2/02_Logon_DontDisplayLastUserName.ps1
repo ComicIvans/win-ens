@@ -1,12 +1,12 @@
 ﻿###############################################################################
-# 01_Logon_DontDisplayLastUserName.ps1
+# 02_Logon_DontDisplayLastUserName.ps1
 # Inicio de sesión interactivo: no mostrar el último nombre de usuario
 ###############################################################################
 
 # Object with policy's metadata
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $PolicyMeta = [PSCustomObject]@{
-  Name             = '01_Logon_DontDisplayLastUserName'
+  Name             = '02_Logon_DontDisplayLastUserName'
   Description      = 'Inicio de sesión interactivo: no mostrar el último nombre de usuario'
   Type             = 'Registry'
   Path             = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
