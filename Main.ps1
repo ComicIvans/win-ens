@@ -69,7 +69,7 @@ function Exit-WithPause {
     if ($Global:InfoFile) {
         $Global:InfoFile.Close()
     }
-    if ($Global:Config.SaveResultsAsCSV) {
+    if ($Global:Config.SaveResultsAsCSV -and $Global:Info.Action -eq "Test") {
         if ($Global:ResultsWriter) {
             $Global:ResultsWriter.Dispose()
         }
