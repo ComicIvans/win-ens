@@ -50,7 +50,7 @@ function Invoke-Profile {
 
   foreach ($folder in $subfolders) {
     try {
-      Invoke-Group -ProfilePath $profilePath -ProfileInfo $ProfileInfo -GroupName $folder.BaseName
+      Invoke-Group -ProfileName $ProfileName -ProfilePath $profilePath -ProfileInfo $ProfileInfo -GroupName $folder.BaseName
     }
     catch {
       ($ProfileInfo.Groups | Where-Object { $_.Name -eq $folder.BaseName } | Select-Object -First 1).Status = 'Aborted'
@@ -71,6 +71,8 @@ function Invoke-Profile {
 # Function to execute a group within a profile
 function Invoke-Group {
   param (
+    [Parameter(Mandatory = $true)]
+    [string]$ProfileName,
     [Parameter(Mandatory = $true)]
     [string]$ProfilePath,
     [Parameter(Mandatory = $true)]
