@@ -8,7 +8,6 @@ function ConvertTo-HashtableRecursive {
   param(
     [Parameter(Mandatory)]
     [object]$Object,
-    
     [Parameter()]
     [switch]$Ordered
   )
