@@ -37,7 +37,7 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
 - **Profiles/**: Carpeta que contiene todos los perfiles, sus grupos y sus políticas.
 
-  - **Media_Estandar/**, **Alta_UsoOficial/**, etc.: Carpetas de perfiles con subcarpetas de grupos (por ejemplo, `OP_ACC_4`), que contienen los scripts de políticas (`01_*.ps1`, etc.).
+  - **Media_Estandar/**, **Alta_UsoOficial/**, etc.: Carpetas de perfiles con subcarpetas de grupos (por ejemplo, `OP_ACC_4`), que contienen los scripts de políticas (`*.ps1`). El orden de ejecución lo define el manifest `profile.manifest.json` de cada perfil, no el nombre de las carpetas y sus archivos.
 
 - **Logs/**: Directorio donde se almacenan:
 
@@ -106,6 +106,14 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
 ---
 
+## Orden de ejecución de grupos y políticas
+
+El orden de ejecución de grupos y políticas se define por `Profiles/<Perfil>/profile.manifest.json`. El manifest se mantiene sincronizado automáticamente: conserva el orden existente, añade nuevas entradas al final en orden alfabético y retira las que ya no existan. Para cambiar el orden, edita ese JSON y reubica los elementos en `Groups` y `Policies` según convenga.
+
+Si no editas el manifest, los nuevos grupos y políticas se añadirán al final (entre nuevos, en orden alfabético).
+
+---
+
 ## Aviso sobre las políticas sin valor establecido en los grupos OP_ACC_4 y OP_ACC_5
 
 Al hacer pruebas con las políticas del tipo "Security", observamos un comportamiento inesperado: una vez se importa el archivo `secpol.cfg` (aunque el único cambio en el archivo sea el correspondiente al valor de la política ejecutándose), Windows le asigna un valor a todas las otras políticas que no tenían un valor configurado, tanto del grupo OP_ACC_4 como del OP_ACC_5.
@@ -125,9 +133,15 @@ Si deseas añadir un nuevo perfil, grupo de políticas o políticas a grupos exi
 
 1. Para **crear un perfil**, comenzar creando una subcarpeta dentro de `Profiles\` (por ejemplo, `Profiles\Media_Estandar\`).
 2. Dentro de esa carpeta **añadir un grupo**, creando una subcarpeta dentro de `Profiles\<Perfil>` (por ejemplo, `Profiles\Media_Estandar\OP_ACC_4`).
-3. Crear un script para cada política concreta (`01_NuevaPolitica.ps1`, etc.) en la carpeta del grupo:
+3. Crear un script para cada política concreta (por ejemplo, `Pwd_ExpireEnabled.ps1`) en la carpeta del grupo:
+
    - En caso de ser de un tipo soportado (comprobar las funciones de `PolicyExecutor.ps1`), definir únicamente su objeto `$PolicyMeta` con el tipo correspondiente y la información asociada a dicho tipo.
-   - En caso de ser un tipo nuevo: o bien generalizar su ejecución mediante una nueva función de `PolicyExecutor.ps1` y su correspondiente llamada en `ProfileExecutor.ps1`, o bien especificar el tipo `Custom` dentro de `$PolicyMeta`, añadir la propiedad `IsValid = $null` e incluir las funciones `Initialize-Policy`, `Test-Policy`, `Backup-Policy`, `Set-Policy` y `Restore-Policy` dentro del archivo de la política. En este último caso, puede usarse de ejemplo `17_Pwd_ExpireEnabled.ps1` dentro de `OP_ACC_5` en `Media_Estandar`.
+   - En caso de ser un tipo nuevo: o bien generalizar su ejecución mediante una nueva función de `PolicyExecutor.ps1` y su correspondiente llamada en `ProfileExecutor.ps1`, o bien especificar el tipo `Custom` dentro de `$PolicyMeta`, añadir la propiedad `IsValid = $null` e incluir las funciones `Initialize-Policy`, `Test-Policy`, `Backup-Policy`, `Set-Policy` y `Restore-Policy` dentro del archivo de la política. En este último caso, puede usarse de ejemplo `Pwd_ExpireEnabled.ps1` dentro de `OP_ACC_5` en `Media_Estandar`.
+
+   Notas importantes sobre orden y nombres:
+
+   - Asegura que el nombre del archivo coincide exactamente con `$PolicyMeta.Name`.
+   - Para establecer el orden de ejecución, edita `Profiles/<Perfil>/profile.manifest.json`. Si no lo haces, las nuevas políticas se incorporarán automáticamente al final del grupo (y entre las nuevas, en orden alfabético).
 
 Es **muy recomendable** implementar los nuevos archivos a partir de una copia de los existentes, para asegurar que se sigue la misma estructura y se implementan todas variables necesarias con sus nombres y propiedades correspondientes. En caso de hacerse, asegurar que todo el contenido se actualice de acuerdo a la nueva política, sin referencias a la original.
 

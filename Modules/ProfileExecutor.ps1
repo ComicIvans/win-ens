@@ -4,6 +4,7 @@
 ###############################################################################
 
 Import-Module "$PSScriptRoot\PolicyExecutor.ps1"
+Import-Module "$PSScriptRoot\Manifest.ps1"
 
 # Function to execute a profile
 function Invoke-Profile {
@@ -41,20 +42,22 @@ function Invoke-Profile {
   Show-Header3Lines "PERFIL $($ProfileName.Replace('_', ' ').ToUpper())"
   Show-Info -Message "[$ProfileName] Ejecutando la acción '$($Global:Info.Action)'." -NoConsole
 
-  # Gather subfolders from the current directory
-  $subfolders = Get-ChildItem -Path $ProfilePath -Directory
+  # Load manifest and execute groups in its order
+  $profileManifest = Get-ProfileManifest -ProfileName $ProfileName
 
-  if (-not $subfolders) {
-    Show-Warning "[$ProfileName] No se encontraron grupos en el perfil. No se ejecutará ninguna acción."
+  if (-not $profileManifest -or -not $profileManifest.Groups -or $profileManifest.Groups.Count -eq 0) {
+    Show-Warning "[$ProfileName] No se encontraron grupos en el manifest del perfil. No se ejecutará ninguna acción."
   }
-
-  foreach ($folder in $subfolders) {
-    try {
-      Invoke-Group -ProfileName $ProfileName -ProfilePath $profilePath -ProfileInfo $ProfileInfo -GroupName $folder.BaseName
-    }
-    catch {
-      ($ProfileInfo.Groups | Where-Object { $_.Name -eq $folder.BaseName } | Select-Object -First 1).Status = 'Aborted'
-      Exit-WithError "[$ProfileName] Ha ocurrido un problema ejecutando el grupo '$($folder.BaseName)': $_"
+  else {
+    foreach ($g in $profileManifest.Groups) {
+      $groupName = $g.Name
+      try {
+        Invoke-Group -ProfileName $ProfileName -ProfilePath $profilePath -ProfileInfo $ProfileInfo -GroupName $groupName -Manifest $g
+      }
+      catch {
+        ($ProfileInfo.Groups | Where-Object { $_.Name -eq $groupName } | Select-Object -First 1).Status = 'Aborted'
+        Exit-WithError "[$ProfileName] Ha ocurrido un problema ejecutando el grupo '$groupName': $_"
+      }
     }
   }
 
@@ -78,7 +81,9 @@ function Invoke-Group {
     [Parameter(Mandatory = $true)]
     [PSCustomObject]$ProfileInfo,
     [Parameter(Mandatory = $true)]
-    [string]$GroupName
+    [string]$GroupName,
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject]$Manifest
   )
 
   # Load the group info object
@@ -112,8 +117,19 @@ function Invoke-Group {
   $backupFilePath = if ($Global:BackupFolderPath) { Join-Path $Global:BackupFolderPath "$($GroupName).json" } else { $null }
   $backup = [ordered]@{}
 
-  # Get all .ps1 files in the folder
-  $policyScripts = Get-ChildItem -Path $groupPath -Filter "*.ps1"
+  # Build the policy script list in the order defined by the manifest
+  $policyScripts = New-Object System.Collections.Generic.List[object]
+  $manifestPolicies = @()
+  if ($Manifest -and $Manifest.Policies) { $manifestPolicies = @($Manifest.Policies) }
+  foreach ($p in $manifestPolicies) {
+    $policyPath = Join-Path $groupPath ($p + '.ps1')
+    if (Test-Path -LiteralPath $policyPath -PathType Leaf) {
+      $policyScripts.Add([PSCustomObject]@{ BaseName = $p; FullName = $policyPath })
+    }
+    else {
+      Show-Warning -Message "[${GroupName}] Política '$p' no encontrada en disco. Saltando."
+    }
+  }
 
   if ($Global:Info.Action -eq "Set" -or ($Global:Info.Action -eq "Test" -and $Global:Config.TestOnlyEnabled)) {
     # Check if all policies in the group are disabled.
