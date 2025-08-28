@@ -43,6 +43,30 @@ function Initialize-Configuration {
       if ($newKeys.Count -gt 0) {
         Show-Info "Añadiendo nuevas claves al archivo de configuración: $($newKeys -join ', ')"
       }
+
+      # Order all keys alphabetically at every level inside ScriptsEnabled, preserving true/false values
+      if ($Global:Config.ScriptsEnabled) {
+        $sortedScripts = [ordered]@{}
+        foreach ($prof in ($Global:Config.ScriptsEnabled.Keys | Sort-Object)) {
+          $sortedGroups = [ordered]@{}
+          $groups = $Global:Config.ScriptsEnabled[$prof]
+          if ($groups) {
+            foreach ($group in ($groups.Keys | Sort-Object)) {
+              $sortedPolicies = [ordered]@{}
+              $policies = $groups[$group]
+              if ($policies) {
+                foreach ($policy in ($policies.Keys | Sort-Object)) {
+                  $sortedPolicies[$policy] = $policies[$policy]
+                }
+              }
+              $sortedGroups[$group] = $sortedPolicies
+            }
+          }
+          $sortedScripts[$prof] = $sortedGroups
+        }
+        $Global:Config.ScriptsEnabled = $sortedScripts
+      }
+      
       # Save the configuration to ensure keys are ordered and consistent
       Save-Config
     }
