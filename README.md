@@ -73,7 +73,7 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
    Comportamiento no interactivo:
 
    - En **Test/Set**, si se pasa `-ProfileName`, se omite la selección de perfil y se ejecuta directamente ese perfil. Si no se pasa, se listan las carpetas de `Profiles/` para elegir.
-   - En **Restore**, si se pasa `-BackupName`, se omite la selección de copia; si no, se listan las copias disponibles para la máquina.
+   - En **Restore**, si se pasa `-BackupName`, se omite la selección de copia; si no, se listan las copias disponibles para la máquina. Si `-Action RestoreLast`, se restaura automáticamente la copia más reciente.
 
 4. **Registro e impresión**
    - Todos los mensajes y resultados se registran en un archivo `.log` en la carpeta `Logs`.
@@ -97,7 +97,7 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
 `Main.ps1` admite ejecución por parámetros, todos opcionales, útil para automatización y scripts:
 
-- `-Action`: `Test`, `Set` o `Restore`.
+- `-Action`: `Test`, `Set`, `Restore` o `RestoreLast` (esta última restaura automáticamente la copia más reciente disponible para el equipo).
 - `-ProfileName`: nombre exacto de la carpeta de perfil en `Profiles/` (p. ej., `Media_Estandar`, `Media_UsoOficial`). Si se especifica, se omite el menú de selección de perfil en `Test`/`Set`.
 - `-BackupName`: nombre exacto de la carpeta de backup dentro de `Backups/<MachineId>/`. Si se especifica, se omite el menú de selección en `Restore`.
 - `-ConfigFile`: ruta a un `config.json` alternativo. Por defecto `config.json`.

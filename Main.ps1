@@ -5,7 +5,7 @@
 
 # Non-interactive CLI
 param(
-    [ValidateSet('Test', 'Set', 'Restore')]
+    [ValidateSet('Test', 'Set', 'Restore', 'RestoreLast')]
     [string]$Action,
     [Parameter()]
     [string]$ProfileName,
@@ -310,7 +310,10 @@ function Restore-Backup {
     }
 
     # If backup is already set, skip selection
-    if ($BackupName) {
+    if ($Action -eq "RestoreLast") {
+        $selectedBackup = $backupFolders[0]
+    }
+    elseif ($BackupName) {
         $selectedBackup = $backupFolders | Where-Object { $_.Name -eq $BackupName }
         if (-not $selectedBackup) {
             Exit-WithError "Copia de seguridad no encontrada: $BackupName"
@@ -351,9 +354,9 @@ function Restore-Backup {
 
 # If action is already set, skip the action menu
 if ($Action) {
-    $Global:Info.Action = $Action
+    $Global:Info.Action = if ($Action -eq "RestoreLast") { "Restore" } else { $Action }
     Save-GlobalInfo
-    switch ($Action) {
+    switch ($Global:Info.Action) {
         "Test" { Select-ExecuteProfile }
         "Set" { Select-ExecuteProfile }
         "Restore" { Restore-Backup }
