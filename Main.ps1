@@ -3,6 +3,21 @@
 # Main entry point for the script
 ###############################################################################
 
+# Non-interactive CLI
+param(
+    [ValidateSet('Test', 'Set', 'Restore')]
+    [string]$Action,
+    [Parameter()]
+    [string]$ProfileName,
+    [Parameter()]
+    [string]$BackupName,
+    [Parameter()]
+    [string]$ConfigFile = "config.json",
+    [Parameter()]
+    [switch]$Quiet
+)
+
+
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 [Console]::InputEncoding = [Text.Encoding]::UTF8
 
@@ -11,6 +26,14 @@ $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Pri
 if (!$currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "Se requieren privilegios de administrador. Elevando..."
     $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    
+    # Pass through all received parameters
+    if ($Action) { $arguments += " -Action `"$Action`"" }
+    if ($ProfileName) { $arguments += " -ProfileName `"$ProfileName`"" }
+    if ($BackupName) { $arguments += " -BackupName `"$BackupName`"" }
+    if ($ConfigFile -and $ConfigFile -ne "config.json") { $arguments += " -ConfigFile `"$ConfigFile`"" }
+    if ($Quiet) { $arguments += " -Quiet" }
+    
     Start-Process PowerShell.exe -Verb RunAs -ArgumentList $arguments
     exit
 }
@@ -81,8 +104,10 @@ function Exit-WithPause {
     # Remove temp folder and its content
     Remove-Item -Path $tempFolder -Recurse -Force -ErrorAction SilentlyContinue
 
-    Write-Host "`nPresiona Enter para salir..."
-    Read-Host | Out-Null
+    if (-not $Quiet) {
+        Write-Host "`nPresiona Enter para salir..."
+        Read-Host | Out-Null
+    }
     exit $Code
 }
 
@@ -200,7 +225,7 @@ catch {
 Show-Header3Lines "SCRIPT PARA LA ADECUACIÓN AL ENS"
 
 # Initialize configuration
-Initialize-Configuration
+Initialize-Configuration -ConfigFile $ConfigFile
 
 # Functions to show the menu
 function Show-ActionMenu {
@@ -224,21 +249,31 @@ function Select-ExecuteProfile {
         Exit-WithError "No hay perfiles disponibles en: $profilesPath"
     }
 
-    Write-Host "`nPerfiles disponibles:"
-    Write-Host ""
-    for ($i = 0; $i -lt $profileFolders.Count; $i++) {
-        Write-Host ("{0}) {1}" -f ($i + 1), $profileFolders[$i].Name) -ForegroundColor DarkCyan
+    # If profile is already set, skip selection
+    if ($ProfileName) {
+        $selectedProfile = $profileFolders | Where-Object { $_.Name -eq $ProfileName }
+        if (-not $selectedProfile) {
+            Exit-WithError "Perfil no encontrado: $ProfileName"
+        }
+        $profileName = $selectedProfile.Name
     }
-    Write-Host ""
-    $sel = Read-Host -Prompt "Selecciona el perfil a aplicar (número)"
-    [int]$selIndex = $sel - 1
+    else {
+        Write-Host "`nPerfiles disponibles:"
+        Write-Host ""
+        for ($i = 0; $i -lt $profileFolders.Count; $i++) {
+            Write-Host ("{0}) {1}" -f ($i + 1), $profileFolders[$i].Name) -ForegroundColor DarkCyan
+        }
+        Write-Host ""
+        $sel = Read-Host -Prompt "Selecciona el perfil a aplicar (número)"
+        [int]$selIndex = $sel - 1
 
-    if ($selIndex -lt 0 -or $selIndex -ge $profileFolders.Count) {
-        Exit-WithError "Perfil seleccionado no válido."
+        if ($selIndex -lt 0 -or $selIndex -ge $profileFolders.Count) {
+            Exit-WithError "Perfil seleccionado no válido."
+        }
+
+        $selectedProfile = $profileFolders[$selIndex]
+        $profileName = $selectedProfile.Name
     }
-
-    $selectedProfile = $profileFolders[$selIndex]
-    $profileName = $selectedProfile.Name
 
     if ($Global:Info.Action -eq "Test" -and $Global:Config.SaveResultsAsCSV) {
         try {
@@ -273,21 +308,31 @@ function Restore-Backup {
     if (-not $backupFolders) {
         Exit-WithError "No hay copias de seguridad disponibles para este equipo."
     }
-    
-    Write-Host "`nCopias disponibles para este equipo:"
-    Write-Host ""
-    for ($i = 0; $i -lt $backupFolders.Count; $i++) {
-        Write-Host ("{0}) {1}" -f ($i + 1), $backupFolders[$i].Name) -ForegroundColor DarkCyan
+
+    # If backup is already set, skip selection
+    if ($BackupName) {
+        $selectedBackup = $backupFolders | Where-Object { $_.Name -eq $BackupName }
+        if (-not $selectedBackup) {
+            Exit-WithError "Copia de seguridad no encontrada: $BackupName"
+        }
     }
-    Write-Host ""
-    $sel = Read-Host -Prompt "Selecciona la copia a restaurar (número)"
-    [int]$selIndex = $sel - 1
+    else {
+        Write-Host "`nCopias disponibles para este equipo:"
+        Write-Host ""
+        for ($i = 0; $i -lt $backupFolders.Count; $i++) {
+            Write-Host ("{0}) {1}" -f ($i + 1), $backupFolders[$i].Name) -ForegroundColor DarkCyan
+        }
+        Write-Host ""
+        $sel = Read-Host -Prompt "Selecciona la copia a restaurar (número)"
+        [int]$selIndex = $sel - 1
     
-    if ($selIndex -lt 0 -or $selIndex -ge $backupFolders.Count) {
-        Exit-WithError "Copia a restaurar no válida."
+        if ($selIndex -lt 0 -or $selIndex -ge $backupFolders.Count) {
+            Exit-WithError "Copia a restaurar no válida."
+        }
+    
+        $selectedBackup = $backupFolders[$selIndex]
     }
-    
-    $selectedBackup = $backupFolders[$selIndex]
+
     if ($selectedBackup.Name -match '^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_(.+)$') {
         $profileName = $Matches[1]
     }
@@ -302,6 +347,17 @@ function Restore-Backup {
 
     Write-Host ""
     Exit-WithSuccess "[$profileName] Restauración completada."
+}
+
+# If action is already set, skip the action menu
+if ($Action) {
+    $Global:Info.Action = $Action
+    Save-GlobalInfo
+    switch ($Action) {
+        "Test" { Select-ExecuteProfile }
+        "Set" { Select-ExecuteProfile }
+        "Restore" { Restore-Backup }
+    }
 }
 
 # Main loop to show the action menu and execute actions
@@ -322,12 +378,12 @@ do {
         "3" {
             $Global:Info.Action = "Restore"
             Save-GlobalInfo
-            Restore-Backup 
+            Restore-Backup
         }
         "4" {
             $Global:Info.Action = "Config"
             Save-GlobalInfo
-            Show-Config 
+            Show-Config -ConfigFile $ConfigFile
         }
         "5" { Exit-WithPause }
         default {

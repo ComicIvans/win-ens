@@ -9,8 +9,8 @@ $Global:Config = [PSCustomObject]@{}
 # Function to initialize the configuration either from an existing file or by creating a new one
 function Initialize-Configuration {
   param(
-    [Parameter()]
-    [string] $ConfigFile = "config.json"
+    [Parameter(Mandatory = $true)]
+    [string]$ConfigFile
   )
 
   # Build the path to the configuration file relative to the project root
@@ -66,9 +66,9 @@ function Initialize-Configuration {
         }
         $Global:Config.ScriptsEnabled = $sortedScripts
       }
-      
+
       # Save the configuration to ensure keys are ordered and consistent
-      Save-Config
+      Save-Config -ConfigFile $ConfigFile
     }
     catch {
       Exit-WithError "No se ha podido cargar el archivo de configuración. $_"
@@ -174,8 +174,8 @@ function Compare-ScriptsEnabled {
 # Function to show the current configuration, allowing to visualize discrepancies between the saved file and the current state
 function Show-Config {
   param(
-    [Parameter()]
-    [string] $ConfigFile = "config.json"
+    [Parameter(Mandatory = $true)]
+    [string] $ConfigFile
   )
 
   Show-Header3Lines "CONFIGURACIÓN ACTUAL"
@@ -353,7 +353,7 @@ function Show-Config {
             $localGroup = $localConfig.ScriptsEnabled[$prof][$group]
             $mergedGroup = Merge-PolicyGroup -GlobalGroup $globalGroup -LocalGroup $localGroup
             $Global:Config.ScriptsEnabled[$prof][$group] = $mergedGroup
-            Save-Config $ConfigFile
+            Save-Config -ConfigFile $ConfigFile
           }
         }
       }
@@ -483,8 +483,8 @@ function Merge-PolicyGroup {
 # Function to save the current configuration to a file
 function Save-Config {
   param(
-    [Parameter()]
-    [string] $ConfigFile = "config.json"
+    [Parameter(Mandatory = $true)]
+    [string] $ConfigFile
   )
 
   $configFilePath = Join-Path $PSScriptRoot "..\$ConfigFile"

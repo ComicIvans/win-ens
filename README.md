@@ -22,6 +22,7 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
   - Comprueba privilegios de administrador y eleva si es necesario.
   - Inicializa configuración, directorios de logs y backups.
+  - Soporta ejecución no interactiva por parámetros (CLI) y reenvía los parámetros al elevar privilegios.
   - Muestra el menú de acciones y, si procede, gestiona la selección del perfil.
   - Llama a `Invoke-Profile` de `ProfileExecutor.ps1` para ejecutar la lógica.
 
@@ -54,8 +55,8 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
    - Importa el resto de archivos.
    - Comprueba privilegios de administrador y eleva si es necesario.
    - Crea `$Global:GlobalInfo`.
-   - Inicializa la configuración y los directorios de logs/backups, comaprando configuración con la estructura real de archivos y mostrando discrepancias.
-   - Muestra el menú de acciones y gestiona la selección del usuario.
+   - Inicializa la configuración y los directorios de logs/backups, comparando configuración con la estructura real de archivos y mostrando discrepancias.
+   - Si se proporciona `-Action`, se omite el menú y se ejecuta directamente la acción indicada; en caso contrario, se muestra el menú y se gestiona la selección del usuario.
 
 2. **Ejecución de perfiles y grupos**
 
@@ -69,6 +70,11 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
    - En modo **Set**, se aplican los cambios y se crean backups previos.
    - En modo **Restore**, se restauran los valores desde una copia de seguridad seleccionada.
 
+   Comportamiento no interactivo:
+
+   - En **Test/Set**, si se pasa `-ProfileName`, se omite la selección de perfil y se ejecuta directamente ese perfil. Si no se pasa, se listan las carpetas de `Profiles/` para elegir.
+   - En **Restore**, si se pasa `-BackupName`, se omite la selección de copia; si no, se listan las copias disponibles para la máquina.
+
 4. **Registro e impresión**
    - Todos los mensajes y resultados se registran en un archivo `.log` en la carpeta `Logs`.
    - El estado de ejecución del script general, su perfil, sus grupos y sus políticas se registra en un archivo `.json` en la carpeta `Logs`.
@@ -81,9 +87,21 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 1. **Descarga o clona** este repositorio en tu equipo.
 2. **Ejecuta** `Main.ps1` con PowerShell **como Administrador** (o deja que el script fuerce la elevación).
    - Recuerda que si tu ExecutionPolicy bloquea scripts, puedes habilitar o pasar `-ExecutionPolicy Bypass` al lanzar PowerShell.
-3. **El script** te pedirá la acción a realizar y, de ser necesario, el **perfil** a aplicar (categoría del sistema de información y calificación de la información).
+3. **El script** te pedirá la acción a realizar y, de ser necesario, el **perfil** a aplicar (categoría del sistema de información y calificación de la información). Si usas parámetros (ver sección "Ejecución no interactiva (CLI)"), el flujo puede ser completamente no interactivo.
 4. **Observa** cómo se generan las carpetas "Logs" y "Backups". Se guardarán registros y copias de seguridad ahí.
 5. Revisa la **salida en pantalla** para ver la información de la ejecución.
+
+---
+
+## Ejecución no interactiva (CLI)
+
+`Main.ps1` admite ejecución por parámetros, todos opcionales, útil para automatización y scripts:
+
+- `-Action`: `Test`, `Set` o `Restore`.
+- `-ProfileName`: nombre exacto de la carpeta de perfil en `Profiles/` (p. ej., `Media_Estandar`, `Media_UsoOficial`). Si se especifica, se omite el menú de selección de perfil en `Test`/`Set`.
+- `-BackupName`: nombre exacto de la carpeta de backup dentro de `Backups/<MachineId>/`. Si se especifica, se omite el menú de selección en `Restore`.
+- `-ConfigFile`: ruta a un `config.json` alternativo. Por defecto `config.json`.
+- `-Quiet`: evita la pausa final de "Presiona Enter para salir...".
 
 ---
 
@@ -117,5 +135,3 @@ Es **muy recomendable** implementar los nuevos archivos a partir de una copia de
 ## Trabajo en curso y pendiente
 
 Se están añadiendo los scripts para cubrir todas las políticas de las categorías "Media" y "Alta" y las calificaciones "Estándar" y "Uso Oficial".
-
-Posteriormente, se pueden plantear alternativas a la ejecución interactiva como la ejecución mediante parámetros.
