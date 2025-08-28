@@ -28,7 +28,7 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
 - **Modules/**: Carpeta que agrupa el resto de la lógica del proyecto:
 
-  - **Config.ps1**: Gestión de `config.json`, detección y sincronización con la estructura real.
+  - **Config.ps1**: Gestión del archivo de configuración (`config.json` por defecto), detección y sincronización con la estructura real.
   - **PrintsAndLogs.ps1**: Funciones de impresión y registro con formato homogéneo y colores (`Show-Info`, `Show-Error`, `Show-Success`, etc.).
   - **Utils.ps1**: Funciones de utilidad, conversión y validación recursiva de objetos, guardado de archivos en disco (backups, info), etc.
   - **PolicyExecutor.ps1**: Lógica genérica para ejecutar tipos de políticas predeterminados.
@@ -43,6 +43,7 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
   - Archivos `.log` con los mensajes de ejecución.
   - Archivos `.json` con el estado final de la ejecución del perfil, sus grupos y sus políticas.
+  - Archivos `.csv` con los resultados de la comprobación del sistema, en caso de que esté habilitado el guardado en la configuración.
 
 - **Backups/**: Directorio donde se almacenan copias de seguridad del sistema antes de aplicar cambios, organizadas por máquina y perfil.
 
@@ -54,7 +55,7 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
    - Importa el resto de archivos.
    - Comprueba privilegios de administrador y eleva si es necesario.
-   - Crea `$Global:GlobalInfo`.
+   - Crea `$Global:Info`.
    - Inicializa la configuración y los directorios de logs/backups, comparando configuración con la estructura real de archivos y mostrando discrepancias.
    - Si se proporciona `-Action`, se omite el menú y se ejecuta directamente la acción indicada; en caso contrario, se muestra el menú y se gestiona la selección del usuario.
 
