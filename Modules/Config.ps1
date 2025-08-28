@@ -91,7 +91,7 @@ function Get-LocalConfig {
   }
 
   $profDirPath = (Resolve-Path -Path (Join-Path $PSScriptRoot "..\Profiles")).Path
-  $profDirs = Get-ChildItem -Path $profDirPath -Directory -ErrorAction SilentlyContinue
+  $profDirs = Get-ChildItem -Path $profDirPath -Directory
   if ($PrintAndLog -and -not $profDirs) {
     Show-Warning "No se han encontrado carpetas de perfiles en el directorio '$profDirPath', por lo que no será posible ejecutar ninguna acción."
   }
@@ -103,7 +103,7 @@ function Get-LocalConfig {
     }
   
     # Get the group folders
-    $groupDirs = Get-ChildItem -Path $profDir.FullName -Directory -ErrorAction SilentlyContinue
+    $groupDirs = Get-ChildItem -Path $profDir.FullName -Directory
     if ($PrintAndLog -and -not $groupDirs) {
       Show-Warning "No se han encontrado carpetas de grupos en el directorio '$($profDir.FullName)', por lo que no será posible ejecutar dicho perfil."
     }
@@ -114,8 +114,8 @@ function Get-LocalConfig {
         $localConfig.ScriptsEnabled[$profDir.Name][$groupDir.Name] = [ordered]@{}
       }
 
-      # Policies: any file that is not the main one for that group
-      $policyFiles = Get-ChildItem -Path $groupDir.FullName -File -Recurse -ErrorAction SilentlyContinue
+      # Policies: any .ps1 file in the group directory
+      $policyFiles = Get-ChildItem -Path $groupDir.FullName -File -Filter "*.ps1"
       if ($PrintAndLog -and -not $policyFiles) {
         Show-Warning "No se han encontrado archivos de políticas en el directorio '$($groupDir.FullName)', por lo que no será posible ejecutar dicho grupo."
       }
