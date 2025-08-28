@@ -288,23 +288,20 @@ function Restore-Backup {
     }
     
     $selectedBackup = $backupFolders[$selIndex]
-    $parts = $selectedBackup.Name -split "_"
-    if ($parts.Count -ge 4) {
-        $category = $parts[2]
-        $info = $parts[3]
-        $profileName = "$category`_$info"
-
-        $Global:BackupFolderPath = $selectedBackup.FullName
-        Show-Info -Message "Restaurando copia de seguridad: $($Global:BackupFolderPath)" -NoConsole
-
-        Invoke-Profile -ProfileName $profileName
-
-        Write-Host ""
-        Exit-WithSuccess "[$profileName] Restauración completada."
+    if ($selectedBackup.Name -match '^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_(.+)$') {
+        $profileName = $Matches[1]
     }
     else {
-        Exit-WithError "No se pudo interpretar la copia de seguridad. Verifica el nombre de la carpeta."
+        Exit-WithError "Nombre de carpeta de copia de seguridad no soportado: '$($selectedBackup.Name)'"
     }
+
+    $Global:BackupFolderPath = $selectedBackup.FullName
+    Show-Info -Message "Restaurando copia de seguridad: $($Global:BackupFolderPath)" -NoConsole
+
+    Invoke-Profile -ProfileName $profileName
+
+    Write-Host ""
+    Exit-WithSuccess "[$profileName] Restauración completada."
 }
 
 # Main loop to show the action menu and execute actions
