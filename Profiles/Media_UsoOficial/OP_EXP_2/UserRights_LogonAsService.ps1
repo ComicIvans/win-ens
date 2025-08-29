@@ -11,6 +11,6 @@ $PolicyMeta = [PSCustomObject]@{
   Type             = 'Security'
   Area             = 'Privilege Rights'
   Property         = 'SeServiceLogonRight'
-  ExpectedValue    = @('*S-1-5-80-0', '*S-1-5-83-0')
+  ExpectedValue    = @()
   ComparisonMethod = 'PrivilegeSet'
 }
