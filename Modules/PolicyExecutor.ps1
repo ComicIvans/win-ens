@@ -198,10 +198,10 @@ function Invoke-RegistryPolicy {
         # Apply the policy
         Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -NoConsole
         try {
-          # Verify if the registry key exists
+          # Verify if the registry path exists
           if (-not (Test-Path -Path $PolicyMeta.Path)) {
-            Show-Info -Message "La clave de registro '$($PolicyMeta.Path)' no existe. Creándola..." -NoConsole
-            New-Item -Path $PolicyMeta.Path | Out-Null
+            Show-Info -Message "La ruta de registro '$($PolicyMeta.Path)' no existe. Creándola..." -NoConsole
+            New-RegistryPath -Path $PolicyMeta.Path
           }
 
           New-ItemProperty -Path $PolicyMeta.Path -Name $PolicyMeta.Property -Value $PolicyMeta.ExpectedValue -Type $PolicyMeta.ValueKind -ErrorAction Stop -Force | Out-Null

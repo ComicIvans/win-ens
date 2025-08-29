@@ -137,3 +137,29 @@ Function Test-ObjectStructure {
 
   return -not $anyFail
 }
+
+# Ensures a full registry path exists by creating any missing parent keys
+function New-RegistryPath {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path
+  )
+
+  if (Test-Path -Path $Path) { return }
+
+  # Split drive (HKCU/HKLM/...) and the rest of the path
+  $parts = $Path.Split(':', 2)
+  if ($parts.Count -lt 2) { Exit-WithError "Ruta de registro no válida: '$Path'" }
+
+  $drive = $parts[0]
+  $rest = $parts[1].TrimStart('\')
+
+  $current = "${drive}:\\"
+  foreach ($segment in ($rest -split '\\')) {
+    if (-not $segment) { continue }
+    $current = Join-Path -Path $current -ChildPath $segment
+    if (-not (Test-Path -Path $current)) {
+      New-Item -Path $current -Force | Out-Null
+    }
+  }
+}
