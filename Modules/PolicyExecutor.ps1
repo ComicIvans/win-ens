@@ -149,7 +149,7 @@ function Invoke-RegistryPolicy {
     "ExactSet" {
       function ConvertTo-NormalizedSet {
         param (
-          [Parameter(Mandatory)]
+          [Parameter()]
           [object]$Source
         )
 
