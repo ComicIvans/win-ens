@@ -155,8 +155,8 @@ function Show-TableHeader {
 function Show-TableRow {
     param(
         [string]$PolicyName,
-        [string]$ExpectedValue,
-        [string]$CurrentValue,
+        [object]$ExpectedValue,
+        [object]$CurrentValue,
         [switch]$ValidValue
     )
     $col2 = $Global:ExpectedColWidth
@@ -165,17 +165,26 @@ function Show-TableRow {
 
     $rowColor = if ($ValidValue -or $ExpectedValue -eq $CurrentValue) { "Green" } else { "Red" }
 
-    if (-not $ExpectedValue) {
+    # Normalize ExpectedValue
+    if ($null -eq $ExpectedValue -or ($ExpectedValue -is [string] -and [string]::IsNullOrWhiteSpace([string]$ExpectedValue))) {
         $ExpectedValue = "N/A"
     }
     elseif ($ExpectedValue -is [System.Array]) {
-        $ExpectedValue = $ExpectedValue -join ", "
+        $ExpectedValue = ($ExpectedValue -join ", ")
     }
-    if (-not $CurrentValue) {
+    else {
+        $ExpectedValue = [string]$ExpectedValue
+    }
+
+    # Normalize CurrentValue
+    if ($null -eq $CurrentValue -or ($CurrentValue -is [string] -and [string]::IsNullOrWhiteSpace([string]$CurrentValue))) {
         $CurrentValue = "N/A"
     }
     elseif ($CurrentValue -is [System.Array]) {
-        $CurrentValue = $CurrentValue -join ", "
+        $CurrentValue = ($CurrentValue -join ", ")
+    }
+    else {
+        $CurrentValue = [string]$CurrentValue
     }
 
     $policyChunks = $PolicyName -split "(?<=\G.{$col1})"
