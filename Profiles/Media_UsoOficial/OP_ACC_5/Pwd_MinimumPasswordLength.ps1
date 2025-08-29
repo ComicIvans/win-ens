@@ -1,0 +1,16 @@
+﻿###############################################################################
+# Pwd_MinimumPasswordLength.ps1
+# Longitud mínima de la contraseña
+###############################################################################
+
+# Object with policy's metadata
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+$PolicyMeta = [PSCustomObject]@{
+  Name             = 'Pwd_MinimumPasswordLength'
+  Description      = 'Longitud mínima de la contraseña'
+  Type             = 'Security'
+  Area             = 'System Access'
+  Property         = 'MinimumPasswordLength'
+  ExpectedValue    = 10
+  ComparisonMethod = 'GreaterOrEqual'
+}
