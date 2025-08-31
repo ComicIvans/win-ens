@@ -173,8 +173,11 @@ function Invoke-RegistryPolicy {
       $currentSet = ConvertTo-NormalizedSet -Source $currentValue
       $expectedSet = ConvertTo-NormalizedSet -Source $PolicyMeta.ExpectedValue
 
+      $isValid = ($null -eq $currentValue -and $null -eq $PolicyMeta.ExpectedValue)
       # Compare as sets
-      $isValid = -not (Compare-Object -ReferenceObject $currentSet -DifferenceObject $expectedSet)
+      if ($null -ne $currentValue -and $null -ne $PolicyMeta.ExpectedValue) {
+        $isValid = -not (Compare-Object -ReferenceObject $currentSet -DifferenceObject $expectedSet)
+      }
     }
     Default {
       Exit-WithError "[$($PolicyInfo.Name)] Método de comparación '$($PolicyMeta.ComparisonMethod)' no soportado."
@@ -249,7 +252,7 @@ function Invoke-SecurityPolicy {
     [System.Collections.IDictionary]$Backup
   )
 
-  $tempFolder = Join-Path $PSScriptRoot "..\Temp"
+  $tempFolder = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\Temp"))
   $tempFilePath = Join-Path $tempFolder "secpol.cfg"
 
   # Export security policy and read current configuration
@@ -265,8 +268,8 @@ function Invoke-SecurityPolicy {
   $currentValue = $null
   $escapedPropForRead = [regex]::Escape($PolicyMeta.Property)
   $propLine = $lines | Where-Object { $_ -match "^(?i)$escapedPropForRead\s*=" } | Select-Object -First 1
-  if ($propLine -and $propLine -match "=\s*(\S+)") {
-    $rawVal = $Matches[1]
+  if ($propLine -and $propLine -match "=\s*(.*)$") {
+    $rawVal = $Matches[1].Trim()
     if ($rawVal -match '^\d+$') { 
       $currentValue = [int]$rawVal 
     } 
@@ -369,7 +372,7 @@ function Invoke-SecurityPolicy {
         Show-Info -Message "[$($PolicyInfo.Name)] Ajustando política..." -NoConsole
         try {
           $escapedProp = [regex]::Escape($PolicyMeta.Property)
-          $propPattern = "^(?i)$escapedProp\s*=\s*\S+"
+          $propPattern = "^(?i)$escapedProp\s*=\s*.*$"
           if ($lines -match $propPattern) {
             # The property exists: replace its value
             $newContent = $lines -replace $propPattern, ("{0} = {1}" -f $PolicyMeta.Property, $PolicyMeta.ExpectedValue)
@@ -414,7 +417,7 @@ function Invoke-SecurityPolicy {
           $backupValue = $Backup[$PolicyInfo.Name]
           if ($backupValue -ne $currentValue) {
             $escapedProp = [regex]::Escape($PolicyMeta.Property)
-            $propPattern = "^(?i)$escapedProp\s*=\s*\S+"
+            $propPattern = "^(?i)$escapedProp\s*=\s*.*$"
             if ($lines -match $propPattern) {
               # The property exists: replace its value
               $newContent = $lines -replace $propPattern, ("{0} = {1}" -f $PolicyMeta.Property, $backupValue)
@@ -475,12 +478,13 @@ function Invoke-ServicePolicy {
     [System.Collections.IDictionary]$Backup
   )
 
-  try {
-    $currentValue = (Get-Service -Name $PolicyMeta.ServiceName -ErrorAction Stop).StartType
+  # Detect service presence
+  $svc = Get-Service -Name $PolicyMeta.ServiceName -ErrorAction SilentlyContinue
+  if (-not $svc) {
+    Show-Info -Message "[$($PolicyInfo.Name)] Se omite: el servicio '$($PolicyMeta.ServiceName)' no existe en este sistema." -NoConsole:($Global:Action -ne "Test")
+    return
   }
-  catch {
-    Exit-WithError "[$($PolicyInfo.Name)] No se pudo obtener el estado del servicio '$($PolicyMeta.ServiceName)': $_"
-  }
+  $currentValue = $svc.StartType
 
   $isValid = $currentValue -eq $PolicyMeta.ExpectedValue
 
