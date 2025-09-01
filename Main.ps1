@@ -123,6 +123,15 @@ function Exit-WithError {
     if ($Code -eq -1) {
         Show-Error $Message -NoLog
     }
+    elseif ($Global:Config -and -not $Global:Config.StopOnProfileError -and $Global:Info.Profile) {
+        if (-not $Global:Info.Error) {
+            $Global:Info.Error = @()
+        }
+        $Global:Info.Error += $Message
+        Save-GlobalInfo
+        Show-Error $Message
+        return
+    }
     else {
         $Global:Info.Error = $Message
         Save-GlobalInfo
@@ -235,7 +244,8 @@ function Show-ActionMenu {
     Write-Host "2) Aplicar un perfil" -ForegroundColor DarkCyan
     Write-Host "3) Restaurar copia" -ForegroundColor DarkCyan
     Write-Host "4) Ver configuración" -ForegroundColor DarkCyan
-    Write-Host "5) Salir" -ForegroundColor DarkCyan
+    Write-Host "5) Recargar configuración" -ForegroundColor DarkCyan
+    Write-Host "6) Salir" -ForegroundColor DarkCyan
     Write-Host ""
     return Read-Host -Prompt "Introduce la opción"
 }
@@ -304,7 +314,7 @@ function Select-ExecuteProfile {
 
 # Function to restore a backup
 function Restore-Backup {
-    $backupFolders = Get-ChildItem $backupsFolder -Directory | Sort-Object LastWriteTime -Descending
+    $backupFolders = Get-ChildItem $backupsFolder -Directory | Sort-Object -Descending
     if (-not $backupFolders) {
         Exit-WithError "No hay copias de seguridad disponibles para este equipo."
     }
@@ -388,7 +398,12 @@ do {
             Save-GlobalInfo
             Show-Config -ConfigFile $ConfigFile
         }
-        "5" { Exit-WithPause }
+        "5" {
+            $Global:Info.Action = "Config"
+            Save-GlobalInfo
+            Initialize-Configuration -ConfigFile $ConfigFile
+        }
+        "6" { Exit-WithPause }
         default {
             Write-Host "Acción no válida. Intenta de nuevo."
             $invalid = $true

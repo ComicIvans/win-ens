@@ -111,6 +111,7 @@ function Get-LocalConfig {
     EnforceMinimumPolicyValues = $false
     TestOnlyEnabled            = $false
     SaveResultsAsCSV           = $false
+    StopOnProfileError         = $true
     ScriptsEnabled             = [ordered]@{}
   }
 
@@ -187,6 +188,7 @@ function Show-Config {
     EnforceMinimumPolicyValues = 'Si está activado, se fuerza el valor mínimo requerido por cada política, sobrescribiendo valores más seguros'
     TestOnlyEnabled            = 'Si está activado, las políticas desactivadas en la configuración tampoco se comprobarán con la acción "Test"'
     SaveResultsAsCSV           = 'Si está activado, los resultados de comprobar un perfil se guardarán en un archivo CSV dentro del directorio "Logs"'
+    StopOnProfileError         = 'Si está activado, la ejecución se detendrá ante cualquier error ocurrido durante la ejecución de un perfil, grupo o política.'
   }
 
   # Print all general config keys except ScriptsEnabled

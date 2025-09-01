@@ -9,6 +9,7 @@ $ConfigTemplate = [PSCustomObject]@{
   EnforceMinimumPolicyValues = $false
   TestOnlyEnabled            = $false
   SaveResultsAsCSV           = $false
+  StopOnProfileError         = $true
   ScriptsEnabled             = [ordered]@{}
 }
 
