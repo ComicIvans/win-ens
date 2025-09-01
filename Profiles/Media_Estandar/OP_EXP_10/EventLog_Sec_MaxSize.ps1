@@ -11,8 +11,8 @@ $PolicyMeta = [PSCustomObject]@{
   Type             = 'Registry'
   Path             = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security'
   Property         = 'MaxSize'
-  ExpectedValue    = 16777216
+  ExpectedValue    = 167772160
   ValueKind        = 'DWord'
   ComparisonMethod = 'AllowedValues'
-  AllowedValues    = @(16777216)
+  AllowedValues    = @(167772160)
 }
