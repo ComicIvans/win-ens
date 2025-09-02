@@ -33,6 +33,7 @@ function Initialize-Policy {
 
   if ($null -eq $PolicyMeta.Windows) {
     Exit-WithError "[$($PolicyInfo.Name)] No se encontró el Firewall de Windows."
+    return
   }
 
   # Valid if there is a third-party FW or all Windows profiles are enabled

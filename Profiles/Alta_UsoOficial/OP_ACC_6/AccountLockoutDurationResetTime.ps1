@@ -32,6 +32,7 @@ function Initialize-Policy {
   }
   catch {
     Exit-WithError "[$($PolicyInfo.Name)] Error al exportar la configuración de seguridad del sistema: $_"
+    return
   }
   finally {
     Remove-Item -Path $PolicyMeta.TempFilePath -ErrorAction SilentlyContinue
@@ -134,6 +135,7 @@ function Set-Policy {
       }
       else {
         Exit-WithError "[$($PolicyInfo.Name)] No se ha encontrado el área '$PolicyMeta.Area' en el archivo de configuración de seguridad del sistema. No se puede aplicar la política."
+        return
       }
     }
 
@@ -142,6 +144,7 @@ function Set-Policy {
     & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $PolicyMeta.TempFilePath | Out-Null
     if ($LASTEXITCODE -ne 0) {
       Exit-WithError "[$($PolicyInfo.Name)] Error al aplicar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
+      return
     }
   }
 
@@ -185,6 +188,7 @@ function Restore-Policy {
       }
       else {
         Exit-WithError "[$($PolicyInfo.Name)] No se ha encontrado el área '$($PolicyMeta.Area)' en el archivo de configuración de seguridad del sistema. No se puede restaurar la política."
+        return
       }
     }
 
@@ -193,6 +197,7 @@ function Restore-Policy {
     & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $PolicyMeta.TempFilePath | Out-Null
     if ($LASTEXITCODE -ne 0) {
       Exit-WithError "[$($PolicyInfo.Name)] Error al restaurar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
+      return
     }
   }
 
