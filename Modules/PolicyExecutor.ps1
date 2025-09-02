@@ -257,7 +257,7 @@ function Invoke-SecurityPolicy {
 
   # Export security policy and read current configuration
   try {
-    & secedit /export /cfg $tempFilePath | Out-Null
+    & secedit /export /db "$env:SystemRoot\security\local.sdb" /cfg $tempFilePath | Out-Null
     $lines = Get-Content -Path $tempFilePath -ErrorAction Stop
   }
   catch {
