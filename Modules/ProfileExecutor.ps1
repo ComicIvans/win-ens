@@ -172,7 +172,7 @@ function Invoke-Group {
     "Restore" {
       # Load the backup file if it exists
       if (Test-Path $backupFilePath) {
-        $backup = ConvertTo-HashtableRecursive (Get-Content -Path $backupFilePath | ConvertFrom-Json)
+        $backup = ConvertTo-HashtableRecursive (Get-Content -Path $backupFilePath -Encoding UTF8 | ConvertFrom-Json)
       }
       else {
         Show-Info -Message "[$($GroupName)] Omitiendo por no existir archivo de respaldo." -NoConsole
