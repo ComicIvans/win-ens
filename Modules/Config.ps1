@@ -121,14 +121,14 @@ function Get-LocalConfig {
     Show-Warning "No se han encontrado carpetas de perfiles en el directorio '$profDirPath', por lo que no será posible ejecutar ninguna acción."
   }
   
-  foreach ($profDir in $profDirs) {
+  foreach ($profDir in ($profDirs | Sort-Object)) {
     # If the Scripts key for the profile does not exist, we create it
     if (-not $localConfig.ScriptsEnabled.Contains($profDir.Name)) {
       $localConfig.ScriptsEnabled[$profDir.Name] = [ordered]@{}
     }
-  
+
     # Get the group folders
-    $groupDirs = Get-ChildItem -Path $profDir.FullName -Directory
+    $groupDirs = Get-ChildItem -Path $profDir.FullName -Directory | Sort-Object
     if ($PrintAndLog -and -not $groupDirs) {
       Show-Warning "No se han encontrado carpetas de grupos en el directorio '$($profDir.FullName)', por lo que no será posible ejecutar dicho perfil."
     }
@@ -140,7 +140,7 @@ function Get-LocalConfig {
       }
 
       # Policies: any .ps1 file in the group directory
-      $policyFiles = Get-ChildItem -Path $groupDir.FullName -File -Filter "*.ps1"
+      $policyFiles = Get-ChildItem -Path $groupDir.FullName -File -Filter "*.ps1" | Sort-Object
       if ($PrintAndLog -and -not $policyFiles) {
         Show-Warning "No se han encontrado archivos de políticas en el directorio '$($groupDir.FullName)', por lo que no será posible ejecutar dicho grupo."
       }
