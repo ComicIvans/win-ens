@@ -41,8 +41,7 @@
                        "Name":  "OP_ACC_6",
                        "Policies":  [
                                         "AccountLockoutThreshold",
-                                        "AccountLockoutDuration",
-                                        "AccountLockoutResetTime",
+                                        "AccountLockoutDurationResetTime",
                                         "Logon_DisplayLastLogonInfo"
                                     ]
                    },
@@ -264,7 +263,11 @@
                                         "Service_CDPSvc",
                                         "Service_WpnService",
                                         "Service_MixedRealityOpenXRSvc",
-                                        "Service_UsoSvc"
+                                        "Service_UsoSvc",
+                                        "Service_AJRouter",
+                                        "Service_TrustedInstaller",
+                                        "Service_W32Time",
+                                        "Service_BITS"
                                     ]
                    }
                ]

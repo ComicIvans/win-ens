@@ -43,8 +43,7 @@
                        "Name":  "OP_ACC_6",
                        "Policies":  [
                                         "AccountLockoutThreshold",
-                                        "AccountLockoutDuration",
-                                        "AccountLockoutResetTime",
+                                        "AccountLockoutDurationResetTime",
                                         "NetServer_AutoDisconnect",
                                         "Logon_DisplayLastLogonInfo"
                                     ]
@@ -291,7 +290,11 @@
                                         "Service_cloudidsvc",
                                         "Service_wlidsvc",
                                         "Service_WwanSvc",
-                                        "Service_DoSvc"
+                                        "Service_DoSvc",
+                                        "Service_AJRouter",
+                                        "Service_BITS",
+                                        "Service_TrustedInstaller",
+                                        "Service_W32Time"
                                     ]
                    }
                ]
