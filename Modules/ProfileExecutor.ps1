@@ -6,6 +6,9 @@
 Import-Module "$PSScriptRoot\PolicyExecutor.ps1"
 Import-Module "$PSScriptRoot\Manifest.ps1"
 
+$Global:GroupMetaStore = [ordered]@{}
+$Global:PolicyMetaStore = [ordered]@{}
+
 # Function to execute a profile
 function Invoke-Profile {
   param (
@@ -17,6 +20,7 @@ function Invoke-Profile {
   $profilePath = Join-Path $PSScriptRoot "..\Profiles\$ProfileName"
   if (-Not (Test-Path $profilePath)) {
     Exit-WithError "[$ProfileName] No se encontró la carpeta del perfil."
+    return
   }
 
   # Object with profile's execution information
@@ -29,7 +33,7 @@ function Invoke-Profile {
   # Check if profile is enabled
   if (-not $Global:Config.ScriptsEnabled[$ProfileName]) {
     $ProfileInfo.Status = 'Skipped'
-    Show-Info -Message "[$ProfileName] Perfil no habilitado en la configuración. Saltando ejecución."
+    Show-Info -Message "[$ProfileName] Perfil no presente en la configuración. Saltando ejecución."
     Save-GlobalInfo
     return
   }
@@ -49,14 +53,112 @@ function Invoke-Profile {
     Show-Warning "[$ProfileName] No se encontraron grupos en el manifest del perfil. No se ejecutará ninguna acción."
   }
   else {
+    # First iteration: Initialize all groups and policies
     foreach ($g in $profileManifest.Groups) {
       $groupName = $g.Name
       try {
-        Invoke-Group -ProfileName $ProfileName -ProfilePath $profilePath -ProfileInfo $ProfileInfo -GroupName $groupName -Manifest $g
+        Show-Info -Message "[$GroupName] Inicializando grupo..."
+        $Global:GroupMetaStore[$groupName] = [PSCustomObject]@{
+          Name           = $groupName
+          ShouldExecute  = $true
+          Initialized    = $false
+          BackupFilePath = $null
+          Backup         = $null
+          GroupInfo      = [PSCustomObject]@{
+            Name     = $GroupName
+            Status   = 'Pending'
+            Policies = @()  # Here we will store references to the Info objects of each policy
+          }
+        }
+        $ProfileInfo.Groups += $Global:GroupMetaStore[$groupName].GroupInfo
+        Invoke-Group -ProfileName $ProfileName -ProfilePath $profilePath -GroupName $groupName -GroupMeta $Global:GroupMetaStore[$groupName] -Manifest $g -Action "Initialize"
       }
       catch {
-        ($ProfileInfo.Groups | Where-Object { $_.Name -eq $groupName } | Select-Object -First 1).Status = 'Aborted'
+        $Global:GroupMetaStore[$groupName].GroupInfo.Status = 'Aborted'
+        Save-GlobalInfo
+        Exit-WithError "[$ProfileName] Ha ocurrido un problema inicializando el grupo '$groupName': $_"
+        continue
+      }
+      Show-Success -Message "[$GroupName] Grupo inicializado." -NoConsole
+    }
+
+    # Filter groups that should be executed and have been initialized
+    $ExecutableGroups = $profileManifest.Groups | Where-Object {
+      $groupName = $_.Name
+      $Global:GroupMetaStore[$groupName].ShouldExecute -and $Global:GroupMetaStore[$groupName].Initialized
+    }
+
+    # Second iteration: Backup if action is "Set"
+    if ($Global:Info.Action -eq "Set") {
+      foreach ($g in $ExecutableGroups) {
+        $groupName = $g.Name
+        try {
+          Show-Info -Message "[$GroupName] Realizando copia de respaldo..."
+          Invoke-Group -ProfileName $ProfileName -ProfilePath $profilePath -GroupName $groupName -GroupMeta $Global:GroupMetaStore[$groupName] -Manifest $g -Action "Backup"
+        }
+        catch {
+          $Global:GroupMetaStore[$groupName].GroupInfo.Status = 'Aborted'
+          Save-GlobalInfo
+          Exit-WithError "[$ProfileName] Ha ocurrido un problema realizando la copia de respaldo del grupo '$groupName': $_"
+          continue
+        }
+        Show-Success -Message "[$GroupName] Copia de respaldo realizada." -NoConsole
+      }
+    }
+
+    # Third iteration: Execute the action for each group
+    foreach ($g in $ExecutableGroups) {
+      $groupName = $g.Name
+      try {
+        Show-Info -Message "[$GroupName] Ejecutando la acción '$($Global:Info.Action)'." -NoConsole
+        Invoke-Group -ProfileName $ProfileName -ProfilePath $profilePath -GroupName $groupName -GroupMeta $Global:GroupMetaStore[$groupName] -Manifest $g -Action $Global:Info.Action
+      }
+      catch {
+        $Global:GroupMetaStore[$groupName].GroupInfo.Status = 'Aborted'
+        Save-GlobalInfo
         Exit-WithError "[$ProfileName] Ha ocurrido un problema ejecutando el grupo '$groupName': $_"
+        continue
+      }
+      Show-Success -Message "[$GroupName] Grupo ejecutado." -NoConsole
+      $Global:GroupMetaStore[$groupName].GroupInfo.Status = 'Completed'
+      Save-GlobalInfo
+    }
+
+    # Fourth to n iterations: Validate "Set" or "Restore" results
+    if (($Global:Info.Action -eq "Set" -or $Global:Info.Action -eq "Restore") -and $Global:Config.MaxValidationIterations -gt 0) {
+      Show-Header1Line "Validación de la acción"
+      $loopCount = 0
+      do {
+        $loopCount++
+        $Global:AnyPolicyNotValidated = $false
+        $Global:SecpolLines = $null
+        foreach ($g in $ExecutableGroups) {
+          $groupName = $g.Name
+          try {
+            Show-Info -Message "[$GroupName] Validando el grupo (iteración nº $loopCount)..."
+            Invoke-Group -ProfileName $ProfileName -ProfilePath $profilePath -GroupName $groupName -GroupMeta $Global:GroupMetaStore[$groupName] -Manifest $g -Action "Assert"
+          }
+          catch {
+            $Global:GroupMetaStore[$groupName].GroupInfo.Status = 'Aborted'
+            Save-GlobalInfo
+            Exit-WithError "[$ProfileName] Ha ocurrido un problema validando el grupo '$groupName': $_"
+            continue
+          }
+          Show-Success -Message "[$GroupName] Grupo validado." -NoConsole
+          $Global:GroupMetaStore[$groupName].GroupInfo.Status = 'Completed'
+          Save-GlobalInfo
+        }
+      } while ($Global:AnyPolicyNotValidated -and $loopCount -lt $Global:Config.MaxValidationIterations)
+      if ($Global:AnyPolicyNotValidated) {
+        switch ($Global:Info.Action) {
+          "Set" {
+            Exit-WithError -Message "[$ProfileName] Se ha alcanzado el número máximo de iteraciones para validar ejecución del grupo, por lo que puede que haya políticas que no se hayan ajustado."
+          }
+          "Restore" {
+            Exit-WithError -Message "[$ProfileName] Se ha alcanzado el número máximo de iteraciones para validar ejecución del grupo, por lo que puede que haya políticas que no se hayan restaurado."
+          }
+        }
+        return
       }
     }
   }
@@ -79,221 +181,267 @@ function Invoke-Group {
     [Parameter(Mandatory = $true)]
     [string]$ProfilePath,
     [Parameter(Mandatory = $true)]
-    [PSCustomObject]$ProfileInfo,
-    [Parameter(Mandatory = $true)]
     [string]$GroupName,
     [Parameter(Mandatory = $true)]
-    [PSCustomObject]$Manifest
+    [PSCustomObject]$GroupMeta,
+    [Parameter(Mandatory = $true)]
+    [PSCustomObject]$Manifest,
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('Initialize', 'Test', 'Backup', 'Set', 'Restore', 'Assert')]
+    [string]$Action
   )
 
-  # Load the group info object
-  $groupPath = Join-Path $ProfilePath "$GroupName"
-  if (-Not (Test-Path $groupPath)) {
-    Exit-WithError "[$GroupName] Carpeta del grupo no encontrada."
-  }
-
-  # Object with group's execution information
-  $GroupInfo = [PSCustomObject]@{
-    Name     = $GroupName
-    Status   = 'Pending'
-    Policies = @()  # Here we will store references to the Info objects of each policy
-  }
-
-  $ProfileInfo.Groups += $GroupInfo
-
-  # Check if group is enabled
-  if (-not $Global:Config.ScriptsEnabled[$ProfileName][$GroupName]) {
-    $GroupInfo.Status = 'Skipped'
-    Write-Host ""
-    Show-Info -Message "[$($GroupName)] Grupo no habilitado en la configuración. Saltando ejecución."
+  if (-not $GroupMeta.Initialized -and $Action -ne "Initialize") {
+    Show-Warning -Message "[$GroupName] El grupo no ha sido inicializado, por lo que no se ejecutará la acción." -NoConsole
+    $GroupMeta.GroupInfo.Status = 'Aborted'
     Save-GlobalInfo
     return
   }
 
-  $GroupInfo.Status = 'Running'
+  $GroupMeta.GroupInfo.Status = $Action
   Save-GlobalInfo
 
-  # Backup file and object for this group's policies
-  $backupFilePath = if ($Global:BackupFolderPath) { Join-Path $Global:BackupFolderPath "$($GroupName).json" } else { $null }
-  $backup = [ordered]@{}
-
-  # Build the policy script list in the order defined by the manifest
-  $policyScripts = New-Object System.Collections.Generic.List[object]
-  $manifestPolicies = @()
-  if ($Manifest -and $Manifest.Policies) { $manifestPolicies = @($Manifest.Policies) }
-  foreach ($p in $manifestPolicies) {
-    $policyPath = Join-Path $groupPath ($p + '.ps1')
-    if (Test-Path -LiteralPath $policyPath -PathType Leaf) {
-      $policyScripts.Add([PSCustomObject]@{ BaseName = $p; FullName = $policyPath })
-    }
-    else {
-      Show-Warning -Message "[${GroupName}] Política '$p' no encontrada en disco. Saltando."
-    }
-  }
-
-  if ($Global:Info.Action -eq "Set" -or ($Global:Info.Action -eq "Test" -and $Global:Config.TestOnlyEnabled)) {
-    # Check if all policies in the group are disabled.
-    $anyEnabled = $false
-    foreach ($script in $policyScripts) {
-      $policyName = $script.BaseName
-      if ($Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$policyName]) {
-        $anyEnabled = $true
-        break
+  switch ($Action) {
+    "Initialize" {
+      $groupPath = Join-Path $ProfilePath "$GroupName"
+      if (-Not (Test-Path $groupPath)) {
+        Exit-WithError "[$GroupName] Carpeta del grupo no encontrada."
+        return
       }
-    }
-    if (-not $anyEnabled) {
-      $GroupInfo.Status = 'Skipped'
-      Show-Info -Message "[$($GroupName)] No se encontraron políticas habilitadas en el grupo." -NoConsole
-      Save-GlobalInfo
-      return
-    }
-  }
 
-  Show-Header1Line $GroupName.Replace('_', '.').ToLower()
-  Show-Info -Message "[$($GroupName)] Ejecutando grupo..." -NoConsole
+      $GroupMeta.ShouldExecute = $true
 
-  switch ($Global:Info.Action) {
-    # If action is Test, show table header
+      # Check if group is enabled
+      if (-not $Global:Config.ScriptsEnabled[$ProfileName][$GroupName]) {
+        $GroupMeta.GroupInfo.Status = 'Skipped'
+        Write-Host ""
+        Show-Info -Message "[$GroupName] Grupo no presente en la configuración. No se ejecutará." -NoConsole
+        Save-GlobalInfo
+        $GroupMeta.ShouldExecute = $false
+        return
+      }
+
+      # Build the policy script list in the order defined by the manifest
+      $policyScripts = New-Object System.Collections.Generic.List[object]
+      $manifestPolicies = @()
+      if ($Manifest -and $Manifest.Policies) { $manifestPolicies = @($Manifest.Policies) }
+      foreach ($p in $manifestPolicies) {
+        $policyPath = Join-Path $groupPath ($p + '.ps1')
+        $policyScripts.Add([PSCustomObject]@{ BaseName = $p; FullName = $policyPath })
+      }
+
+      if ($Global:Info.Action -eq "Set" -or ($Global:Info.Action -eq "Test" -and $Global:Config.TestOnlyEnabled)) {
+        # Check if all policies in the group are disabled
+        $anyEnabled = $false
+        foreach ($script in $policyScripts) {
+          $policyName = $script.BaseName
+          if ($Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$policyName]) {
+            $anyEnabled = $true
+            break
+          }
+        }
+        if (-not $anyEnabled) {
+          $GroupMeta.GroupInfo.Status = 'Skipped'
+          Show-Info -Message "[$GroupName] No se encontraron políticas habilitadas en el grupo."
+          Save-GlobalInfo
+          $GroupMeta.ShouldExecute = $false
+          return
+        }
+      }
+
+      # Backup file and object for this group's policies
+      $GroupMeta.BackupFilePath = if ($Global:BackupFolderPath) { Join-Path $Global:BackupFolderPath "$GroupName.json" } else { $null }
+      $GroupMeta.Backup = [ordered]@{}
+
+      if ($Global:Info.Action -eq "Restore") {
+        # Load the backup file if it exists
+        if (Test-Path $GroupMeta.BackupFilePath) {
+          $GroupMeta.Backup = ConvertTo-HashtableRecursive (Get-Content -Path $GroupMeta.BackupFilePath -Encoding UTF8 | ConvertFrom-Json)
+        }
+        else {
+          Show-Info -Message "[$GroupName] Omitiendo por no existir archivo de respaldo." -NoConsole
+          $GroupMeta.GroupInfo.Status = 'Skipped'
+          Save-GlobalInfo
+          $GroupMeta.ShouldExecute = $false
+          return
+        }
+      }
+
+      # Load each script and store its $PolicyMeta object inside $Global:PolicyMetaStore
+      $Global:PolicyMetaStore[$GroupName] = [ordered]@{}
+      foreach ($script in $policyScripts) {
+        try {
+          # Object with policy's execution information
+          $PolicyInfo = [PSCustomObject]@{
+            Name   = $script.BaseName
+            Status = 'Pending'
+          }
+
+          $GroupMeta.GroupInfo.Policies += $PolicyInfo
+          $PolicyInfo.Status = 'Loading'
+          Save-GlobalInfo
+        
+          # Skip if the policy is not enabled in the configuration or if the backup does not contain the policy
+          if ($Global:Info.Action -eq "Test" -and $Global:Config.TestOnlyEnabled -and $Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$PolicyInfo.Name] -ne $true) {
+            $PolicyInfo.Status = 'Skipped'
+            Show-Info -Message "[$GroupName] [$($PolicyInfo.Name)] Política no habilitada en la configuración."
+            Save-GlobalInfo
+            continue
+          }
+          elseif ($Global:Info.Action -eq "Set" -and $Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$PolicyInfo.Name] -ne $true) {
+            $PolicyInfo.Status = 'Skipped'
+            Show-Info -Message "[$GroupName] [$($PolicyInfo.Name)] Política no habilitada en la configuración."
+            Save-GlobalInfo
+            continue
+          }
+          elseif ($Global:Info.Action -eq "Restore" -and -not $GroupMeta.Backup.ContainsKey($PolicyInfo.Name)) {
+            $PolicyInfo.Status = 'Skipped'
+            Show-Info -Message "[$GroupName] [$($PolicyInfo.Name)] Política no encontrada en el archivo de respaldo. No se restaurará."
+            Save-GlobalInfo
+            continue
+          }
+
+          # Load the script using dot sourcing, this includes the $PolicyMeta object
+          . $script.FullName
+
+          # Validate the policy metadata
+          Show-Info -Message "[$GroupName] [$($PolicyInfo.Name)] Validando la estructura del objeto de metadatos de la política..." -NoConsole
+          if (-not $PolicyMeta) {
+            Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] El objeto de metadatos de la política no está definido."
+            continue
+          }
+          elseif (-not ($PolicyInfo.Name -eq $PolicyMeta.Name)) {
+            Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] El nombre de la política en el objeto de metadatos no coincide con el nombre del archivo."
+            continue
+          }
+          elseif (-not $PolicyMeta.Type) {
+            Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] El objeto de metadatos no tiene una clave 'Type' definida."
+            continue
+          }
+          else {
+            # Dynamically construct the template variable name based on $PolicyMeta.Type
+            $dynamicTemplateName = "$($PolicyMeta.Type)PolicyMetaTemplate"
+
+            # Retrieve the template variable
+            if (-not (Get-Variable -Name $dynamicTemplateName -ErrorAction SilentlyContinue)) {
+              Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] No se encontró la plantilla de metadatos para el tipo de política '$($PolicyMeta.Type)'."
+              continue
+            }
+
+            $TypePolicyMetaTemplate = (Get-Variable -Name $dynamicTemplateName -ErrorAction Stop).Value
+        
+            if (-not (Test-ObjectStructure -Template $TypePolicyMetaTemplate -Target $PolicyMeta -AllowAdditionalProperties)) {
+              Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] La estructura del objeto de metadatos de la política no es válida, para más información, consulta los registros."
+              continue
+            }
+          }
+
+          # Initialize properties if they don't exist
+          if ($null -eq $PolicyMeta.Initialized) {
+            $PolicyMeta | Add-Member -NotePropertyName Initialized -NotePropertyValue $false -Force
+          }
+          if ($null -eq $PolicyMeta.IsValid) {
+            $PolicyMeta | Add-Member -NotePropertyName IsValid -NotePropertyValue $false -Force
+          }
+          if ($null -eq $PolicyMeta.CurrentValue) {
+            $PolicyMeta | Add-Member -NotePropertyName CurrentValue -NotePropertyValue $null -Force
+          }
+
+          # Look for policy-specific invoke function
+          $invokeFunction = "Invoke-$($PolicyMeta.Type)Policy"
+          if (-not (Get-Command -Name $invokeFunction -ErrorAction SilentlyContinue)) {
+            Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] Tipo de política '$($PolicyMeta.Type)' no soportado."
+            continue
+          }
+
+          $Global:PolicyMetaStore[$GroupName][$PolicyInfo.Name] = $PolicyMeta
+          Remove-Variable -Name PolicyMeta -ErrorAction SilentlyContinue
+        
+          $PolicyInfo.Status = 'Loaded'
+          Save-GlobalInfo
+        }
+        catch {
+          $PolicyInfo.Status = 'Aborted'
+          Save-GlobalInfo
+          Exit-WithError "[$GroupName] Ha ocurrido un problema cargando la política '$($PolicyInfo.Name)': $_"
+          continue
+        }
+      }
+      $GroupMeta.Initialized = $true
+    }
     "Test" {
+      Show-Header1Line $GroupName.Replace('_', '.').ToLower()
       Show-TableHeader
     }
-    "Set" {
+    "Backup" {
       # Initialize backup file with empty JSON object
       try {
-        $backupFile = [System.IO.File]::Open($backupFilePath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
+        $backupFile = [System.IO.File]::Open($GroupMeta.BackupFilePath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
         $backupFileWriter = [System.IO.StreamWriter]::new($backupFile, [System.Text.Encoding]::UTF8)
         $backupFileWriter.AutoFlush = $true
       }
       catch {
-        Exit-WithError -Message "No se ha podido crear el archivo de respaldo: $backupFilePath. $_" -Code -1
+        Exit-WithError -Message "[$GroupName] No se ha podido crear el archivo de respaldo: $($GroupMeta.BackupFilePath). $_" -Code -2
       }
       Save-Backup
     }
-    "Restore" {
-      # Load the backup file if it exists
-      if (Test-Path $backupFilePath) {
-        $backup = ConvertTo-HashtableRecursive (Get-Content -Path $backupFilePath -Encoding UTF8 | ConvertFrom-Json)
-      }
-      else {
-        Show-Info -Message "[$($GroupName)] Omitiendo por no existir archivo de respaldo." -NoConsole
-        $GroupInfo.Status = 'Skipped'
-        Save-GlobalInfo
-        return
-      }
+    "Set" {
+      Show-Header1Line $GroupName.Replace('_', '.').ToLower()
     }
+    "Restore" {
+      Show-Header1Line $GroupName.Replace('_', '.').ToLower()
+    }
+    "Assert" {}
   }
 
-  # Load script and perform the action for each policy
-  foreach ($script in $policyScripts) {
+  # Reset all policies' status
+  foreach ($p in $Global:PolicyMetaStore[$GroupName].Keys) {
+    $PolicyInfo = $GroupMeta.GroupInfo.Policies | Where-Object { $_.Name -eq $p }
+    $PolicyInfo.Status = 'Pending'
+  }
+  Save-GlobalInfo
+
+  # Perform the action for each policy
+  foreach ($p in $Global:PolicyMetaStore[$GroupName].Keys) {
     try {
-      # Object with policy metadata
-      $PolicyInfo = [PSCustomObject]@{
-        Name   = $script.BaseName
-        Status = 'Pending'
-      }
-
-      $GroupInfo.Policies += $PolicyInfo
-      $PolicyInfo.Status = 'Loading'
-      Save-GlobalInfo
-
-      # Load the script using dot sourcing, this includes the $PolicyMeta object
-      . $script.FullName
-        
-      # Skip if the policy is not enabled in the configuration or if the backup does not contain the policy
-      if ($Global:Info.Action -eq "Test" -and $Global:Config.TestOnlyEnabled -and $Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$PolicyInfo.Name] -ne $true) {
-        $PolicyInfo.Status = 'Skipped'
-        Show-Info -Message "[$($PolicyInfo.Name)] Política no habilitada en la configuración." -NoConsole
-        Save-GlobalInfo
-        continue
-      }
-      elseif ($Global:Info.Action -eq "Set" -and $Global:Config.ScriptsEnabled[$ProfileName][$GroupName][$PolicyInfo.Name] -ne $true) {
-        $PolicyInfo.Status = 'Skipped'
-        Show-Info -Message "[$($PolicyInfo.Name)] Política no habilitada en la configuración."
-        Save-GlobalInfo
-        continue
-      }
-      elseif ($Global:Info.Action -eq "Restore" -and -not $backup.ContainsKey($PolicyInfo.Name)) {
-        $PolicyInfo.Status = 'Skipped'
-        Show-Info -Message "[$($PolicyInfo.Name)] Política no encontrada en el archivo de respaldo. Saltando restauración."
-        Save-GlobalInfo
-        continue
-      }
-
-      # Validate the policy metadata
-      Show-Info -Message "[$($PolicyInfo.Name)] Validando la estructura del objeto de metadatos de la política..." -NoConsole
-      if (-not $PolicyMeta) {
-        Exit-WithError "[$($PolicyInfo.Name)] El objeto de metadatos de la política no está definido."
-      }
-      elseif (-not ($PolicyInfo.Name -eq $PolicyMeta.Name)) {
-        Exit-WithError "[$($PolicyInfo.Name)] El nombre de la política en el objeto de metadatos no coincide con el nombre del archivo."
-      }
-      elseif (-not $PolicyMeta.Type) {
-        Exit-WithError "[$($PolicyInfo.Name)] El objeto de metadatos no tiene una clave 'Type' definida."
-      }
-      else {
-        # Dynamically construct the template variable name based on $PolicyMeta.Type
-        $dynamicTemplateName = "$($PolicyMeta.Type)PolicyMetaTemplate"
-
-        # Retrieve the template variable
-        if (-not (Get-Variable -Name $dynamicTemplateName -ErrorAction SilentlyContinue)) {
-          Exit-WithError "[$($PolicyInfo.Name)] No se encontró la plantilla de metadatos para el tipo de política '$($PolicyMeta.Type)'."
-        }
-
-        $TypePolicyMetaTemplate = (Get-Variable -Name $dynamicTemplateName -ErrorAction Stop).Value
-        
-        if (-not (Test-ObjectStructure -Template $TypePolicyMetaTemplate -Target $PolicyMeta -AllowAdditionalProperties)) {
-          Exit-WithError "[$($PolicyInfo.Name)] La estructura del objeto de metadatos de la política no es válida, para más información, consulta los registros."
-        }
-      }
-    }
-    catch {
-      $PolicyInfo.Status = 'Aborted'
-      Save-GlobalInfo
-      Exit-WithError "[$($GroupName)] Ha ocurrido un problema cargando la política '$($PolicyInfo.Name)': $_"
-    }
-    try {
+      $PolicyInfo = $GroupMeta.GroupInfo.Policies | Where-Object { $_.Name -eq $p }
       $PolicyInfo.Status = 'Running'
       Save-GlobalInfo
-      Show-Info -Message "[$($PolicyInfo.Name)] Ejecutando política..." -NoConsole
+      Show-Info -Message "[$GroupName] [$($PolicyInfo.Name)] Ejecutando acción '$Action'..." -NoConsole
 
+      if ($Global:PolicyMetaStore[$GroupName][$PolicyInfo.Name].Type -eq "Custom") {
+        # Load custom functions
+        $scriptPath = Join-Path $ProfilePath "$GroupName\$($PolicyInfo.Name).ps1"
+        . $scriptPath
+      }
+      $PolicyMeta = $Global:PolicyMetaStore[$GroupName][$PolicyInfo.Name]
 
-      # Look for policy-specific invoke function
       $invokeFunction = "Invoke-$($PolicyMeta.Type)Policy"
-      if (Get-Command -Name $invokeFunction -ErrorAction SilentlyContinue) {
-        & $invokeFunction -PolicyInfo $PolicyInfo -PolicyMeta $PolicyMeta -Backup $backup
-      }
-      else {
-        Exit-WithError "[$($PolicyInfo.Name)] Tipo de política '$($PolicyMeta.Type)' no soportado."
-      }
-
-      # Remove the PolicyMeta variable
-      Remove-Variable -Name PolicyMeta -Scope Script -ErrorAction SilentlyContinue
+      & $invokeFunction -GroupName $GroupName -PolicyInfo $PolicyInfo -PolicyMeta $PolicyMeta -Backup $GroupMeta.Backup -Action $Action
 
       $PolicyInfo.Status = 'Completed'
       Save-GlobalInfo
-      Show-Success "[$($PolicyInfo.Name)] Política ejecutada." -NoConsole
+      Show-Success "[$GroupName] [$($PolicyInfo.Name)] Política ejecutada." -NoConsole
     }
     catch {
       $PolicyInfo.Status = 'Aborted'
       Save-GlobalInfo
-      Exit-WithError "[$($GroupName)] Ha ocurrido un problema ejecutando la política '$($PolicyInfo.Name)': $_"
+      Exit-WithError "[$GroupName] Ha ocurrido un problema ejecutando la política '$($PolicyInfo.Name)': $_"
+      continue
     }
   }
 
-  # Close backup file handles
-  if ($backupFileWriter) {
-    $backupFileWriter.Dispose()
+  if ($Action -eq "Backup") {
+    # Close backup file handles
+    if ($backupFileWriter) {
+      $backupFileWriter.Dispose()
+    }
+    if ($backupFile) {
+      $backupFile.Close()
+    }
+    # If $GroupMeta.Backup it's empty, remove the file
+    if ($GroupMeta.Backup.Count -eq 0 -and $GroupMeta.BackupFilePath) {
+      Remove-Item -Path $GroupMeta.BackupFilePath -ErrorAction SilentlyContinue
+    }
   }
-  if ($backupFile) {
-    $backupFile.Close()
-  }
-  # If $backup it's empty, remove the file
-  if ($backup.Count -eq 0 -and $backupFilePath) {
-    Remove-Item -Path $backupFilePath -ErrorAction SilentlyContinue
-  }
-
-  # Save the group state
-  $GroupInfo.Status = 'Completed'
-  Save-GlobalInfo
-  Show-Success "[$($GroupName)] Grupo ejecutado." -NoConsole
 }

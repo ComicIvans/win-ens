@@ -27,11 +27,11 @@ function Initialize-Policy {
   $PolicyMeta.TempFilePath = Join-Path $tempFolder "secpol.cfg"
 
   try {
-    & secedit /export /db "$env:SystemRoot\security\local.sdb" /cfg $PolicyMeta.TempFilePath | Out-Null
+    & secedit /export /cfg $PolicyMeta.TempFilePath | Out-Null
     $PolicyMeta.Lines = Get-Content -Path $PolicyMeta.TempFilePath -ErrorAction Stop
   }
   catch {
-    Exit-WithError "[$($PolicyInfo.Name)] Error al exportar la configuración de seguridad del sistema: $_"
+    Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] Error al exportar la configuración de seguridad del sistema: $_"
     return
   }
   finally {
@@ -108,6 +108,7 @@ function Backup-Policy {
 }
 
 function Set-Policy {
+  Initialize-Policy
   # Helper to apply a single property change to $PolicyMeta.Lines and import via secedit
   $apply = {
     param([string]$prop, [object]$value)
@@ -134,7 +135,7 @@ function Set-Policy {
         $PolicyMeta.Lines = $tmp
       }
       else {
-        Exit-WithError "[$($PolicyInfo.Name)] No se ha encontrado el área '$PolicyMeta.Area' en el archivo de configuración de seguridad del sistema. No se puede aplicar la política."
+        Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] No se ha encontrado el área '$PolicyMeta.Area' en el archivo de configuración de seguridad del sistema. No se puede aplicar la política."
         return
       }
     }
@@ -143,21 +144,36 @@ function Set-Policy {
     $PolicyMeta.Lines | Set-Content -Path $PolicyMeta.TempFilePath -Encoding Unicode -ErrorAction Stop
     & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $PolicyMeta.TempFilePath | Out-Null
     if ($LASTEXITCODE -ne 0) {
-      Exit-WithError "[$($PolicyInfo.Name)] Error al aplicar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
+      Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] Error al aplicar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
       return
     }
   }
 
-  # Apply LockoutDuration first
-  & $apply 'LockoutDuration' $PolicyMeta.DurationExpectedValue
+  if ($PolicyMeta.ResetExpectedValue -gt $PolicyMeta.DurationExpectedValue -and $PolicyMeta.DurationExpectedValue -ne -1) {
+    Show-Warning "[$GroupName] [$($PolicyInfo.Name)] No se puede aplicar la política porque el valor esperado de 'Restablecer el contador de bloqueo de cuenta' ($($PolicyMeta.ResetExpectedValue)) es mayor que el valor esperado de 'Duración del bloqueo de cuenta' ($($PolicyMeta.DurationExpectedValue))."
+  }
+  else {
+    if ($PolicyMeta.DurationExpectedValue -eq -1 -or $PolicyMeta.DurationExpectedValue -ge $PolicyMeta.CurrentReset) {
+      # Apply LockoutDuration first
+      & $apply 'LockoutDuration' $PolicyMeta.DurationExpectedValue
 
-  # Apply ResetLockoutCount next
-  & $apply 'ResetLockoutCount' $PolicyMeta.ResetExpectedValue
+      # Apply ResetLockoutCount next
+      & $apply 'ResetLockoutCount' $PolicyMeta.ResetExpectedValue
+    }
+    else {
+      # Apply ResetLockoutCount first
+      & $apply 'ResetLockoutCount' $PolicyMeta.ResetExpectedValue
+
+      # Apply LockoutDuration next
+      & $apply 'LockoutDuration' $PolicyMeta.DurationExpectedValue
+    }
+  }
 
   Remove-Item -Path $PolicyMeta.TempFilePath -ErrorAction SilentlyContinue
 }
 
 function Restore-Policy {
+  Initialize-Policy
   $bk = $Backup[$PolicyInfo.Name]
 
   # Helper to apply a single property change to $PolicyMeta.Lines and import via secedit
@@ -187,7 +203,7 @@ function Restore-Policy {
         $PolicyMeta.Lines = $tmp
       }
       else {
-        Exit-WithError "[$($PolicyInfo.Name)] No se ha encontrado el área '$($PolicyMeta.Area)' en el archivo de configuración de seguridad del sistema. No se puede restaurar la política."
+        Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] No se ha encontrado el área '$($PolicyMeta.Area)' en el archivo de configuración de seguridad del sistema. No se puede restaurar la política."
         return
       }
     }
@@ -196,14 +212,38 @@ function Restore-Policy {
     $PolicyMeta.Lines | Set-Content -Path $PolicyMeta.TempFilePath -Encoding Unicode -ErrorAction Stop
     & secedit /configure /db "$env:SystemRoot\security\local.sdb" /cfg $PolicyMeta.TempFilePath | Out-Null
     if ($LASTEXITCODE -ne 0) {
-      Exit-WithError "[$($PolicyInfo.Name)] Error al restaurar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
+      Exit-WithError "[$GroupName] [$($PolicyInfo.Name)] Error al restaurar la política. Consultar el registro '%windir%\security\logs\scesrv.log' para obtener información detallada."
       return
     }
   }
 
-  # Restore in reverse: ResetLockoutCount first, then LockoutDuration
-  if ($bk.ContainsKey('ResetLockoutCount')) { & $apply 'ResetLockoutCount' $bk['ResetLockoutCount'] }
-  if ($bk.ContainsKey('LockoutDuration')) { & $apply 'LockoutDuration' $bk['LockoutDuration'] }
+  if ($bk['ResetLockoutCount'] -gt $bk['LockoutDuration'] -and $bk['LockoutDuration'] -ne -1) {
+    Show-Warning "[$GroupName] [$($PolicyInfo.Name)] No se puede restaurar la política porque el valor original de 'Restablecer el contador de bloqueo de cuenta' ($($bk['ResetLockoutCount'])) es mayor que el valor original de 'Duración del bloqueo de cuenta' ($($bk['LockoutDuration']))."
+  }
+  else {
+    if ($bk['LockoutDuration'] -eq -1 -or $bk['LockoutDuration'] -ge $PolicyMeta.CurrentReset) {
+      # Restore LockoutDuration first, then ResetLockoutCount
+      & $apply 'LockoutDuration' $bk['LockoutDuration']
+      & $apply 'ResetLockoutCount' $bk['ResetLockoutCount']
+    }
+    else {
+      # Restore ResetLockoutCount first, then LockoutDuration
+      & $apply 'ResetLockoutCount' $bk['ResetLockoutCount']
+      & $apply 'LockoutDuration' $bk['LockoutDuration']
+    }
+  }
   
   Remove-Item -Path $PolicyMeta.TempFilePath -ErrorAction SilentlyContinue
+}
+
+function Assert-Policy {
+  Initialize-Policy
+  switch ($Global:Info.Action) {
+    "Set" {
+      return $PolicyMeta.IsValid
+    }
+    "Restore" {
+      return ($Backup[$PolicyInfo.Name]['LockoutDuration'] -eq $PolicyMeta.CurrentDuration) -and ($Backup[$PolicyInfo.Name]['ResetLockoutCount'] -eq $PolicyMeta.CurrentReset)
+    }
+  }
 }

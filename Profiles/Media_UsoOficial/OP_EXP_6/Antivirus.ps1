@@ -103,3 +103,8 @@ function Set-Policy {
 function Restore-Policy {
   Show-Warning "[$($PolicyInfo.Name)] Esta política no se puede restaurar automáticamente. No se realizará ninguna acción."
 }
+
+function Assert-Policy {
+  # Not supported
+  return $true
+}

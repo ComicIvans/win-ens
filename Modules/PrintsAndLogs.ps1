@@ -210,6 +210,6 @@ function Show-TableRow {
         $csvE = '"' + ($ExpectedValue -replace '"', '""') + '"'
         $csvC = '"' + ($CurrentValue -replace '"', '""') + '"'
         $csvV = if ($rowColor -eq "Green") { $true } else { $false }
-        $Global:ResultsWriter.WriteLine("$($GroupInfo.Name),$($PolicyInfo.Name),$csvP,$csvE,$csvC,$csvV")
+        $Global:ResultsWriter.WriteLine("$($GroupName),$($PolicyInfo.Name),$csvP,$csvE,$csvC,$csvV")
     }
 }

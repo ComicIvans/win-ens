@@ -123,7 +123,7 @@ function Exit-WithError {
     if ($Code -eq -1) {
         Show-Error $Message -NoLog
     }
-    elseif ($Global:Config -and -not $Global:Config.StopOnProfileError -and $Global:Info.Profile) {
+    elseif ($Code -ne -2 -and $Global:Config -and -not $Global:Config.StopOnProfileError -and $Global:Info.Profile) {
         if (-not $Global:Info.Error) {
             $Global:Info.Error = @()
         }

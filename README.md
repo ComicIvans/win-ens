@@ -33,11 +33,12 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
   - **Utils.ps1**: Funciones de utilidad, conversión y validación recursiva de objetos, guardado de archivos en disco (backups, info), etc.
   - **PolicyExecutor.ps1**: Lógica genérica para ejecutar tipos de políticas predeterminados.
   - **ProfileExecutor.ps1**: Orquesta la ejecución de perfiles completos recorriendo grupos y políticas.
-  - **Templates.ps1**: Plantillas para validar objetos (configuración y varios tipos de `ProfileMeta`.).
+  - **Templates.ps1**: Plantillas para validar objetos (configuración y varios tipos de `PolicyMeta`).
 
 - **Profiles/**: Carpeta que contiene todos los perfiles, sus grupos y sus políticas.
 
-  - **Media_Estandar/**, **Alta_UsoOficial/**, etc.: Carpetas de perfiles con subcarpetas de grupos (por ejemplo, `OP_ACC_4`), que contienen los scripts de políticas (`*.ps1`). El orden de ejecución lo define el manifest `profile.manifest.json` de cada perfil, no el nombre de las carpetas y sus archivos.
+  - **Media_Estandar/**, **Alta_UsoOficial/**, etc.: Carpetas de perfiles con subcarpetas de grupos (por ejemplo, `OP_ACC_4`), que contienen los scripts de políticas (`*.ps1`).  
+    El orden de ejecución lo define el manifest `profile.manifest.json` de cada perfil.
 
 - **Logs/**: Directorio donde se almacenan:
 
@@ -61,92 +62,64 @@ La estructura se basa en un enfoque modular, con toda la lógica en la carpeta `
 
 2. **Ejecución de perfiles y grupos**
 
-   - `Main.ps1` llama a `Invoke-Profile` dentro de `ProfileExecutor.ps1`, que carga y ejecuta los grupos dentro del perfil llamando a `Invoke-Group`.
-   - Cada grupo contiene varias políticas que se cargan y define el objeto `$PolicyMeta`, con información sobre cómo ejecutar dicha política.
-   - Las políticas pueden recurrir a la lógica genérica disponible en `PolicyExecutor.ps1` o implementar sus propias funciones `Test-Policy`, `Set-Policy`, `Restore-Policy`, gestionando toda la ejecución.
+   - `Main.ps1` llama a `Invoke-Profile` dentro de `ProfileExecutor.ps1`, que:
+     - Inicializa todos los grupos y políticas definidos en el manifest.
+     - Realiza copias de respaldo si la acción es `Set`.
+     - Ejecuta la acción (`Test`, `Set` o `Restore`) sobre todos los grupos y políticas.
+     - Valida los resultados en iteraciones sucesivas hasta que todas las políticas estén correctamente aplicadas/restauradas o se alcance el máximo configurado (`MaxValidationIterations`).
 
 3. **Flujo Test / Set / Restore**
 
    - En modo **Test**, se comprueba el estado de las políticas sin modificar el sistema.
-   - En modo **Set**, se aplican los cambios y se crean backups previos.
-   - En modo **Restore**, se restauran los valores desde una copia de seguridad seleccionada.
-
-   Comportamiento no interactivo:
-
-   - En **Test/Set**, si se pasa `-ProfileName`, se omite la selección de perfil y se ejecuta directamente ese perfil. Si no se pasa, se listan las carpetas de `Profiles/` para elegir.
-   - En **Restore**, si se pasa `-BackupName`, se omite la selección de copia; si no, se listan las copias disponibles para la máquina. Si `-Action RestoreLast`, se restaura automáticamente la copia más reciente.
+   - En modo **Set**, se aplican los cambios, creando backups previos, y se valida que los ajustes se apliquen correctamente con iteraciones.
+   - En modo **Restore**, se restauran los valores desde una copia de seguridad seleccionada y se valida que las políticas recuperen su valor original.
+   - En ejecución no interactiva:
+     - En **Test/Set**, si se pasa `-ProfileName`, se omite la selección de perfil.
+     - En **Restore**, si se pasa `-BackupName`, se omite la selección de copia; con `-Action RestoreLast` se restaura automáticamente la más reciente.
 
 4. **Registro e impresión**
-   - Todos los mensajes y resultados se registran en un archivo `.log` en la carpeta `Logs`.
-   - El estado de ejecución del script general, su perfil, sus grupos y sus políticas se registra en un archivo `.json` en la carpeta `Logs`.
-   - Los errores y estados se guardan en los objetos globales y se muestran en consola con formato y color.
+   - Todos los mensajes y resultados se registran en un archivo `.log`.
+   - El estado de ejecución general, perfiles, grupos y políticas se registra en un `.json`.
+   - En modo **Test**, los resultados pueden guardarse en `.csv` si está habilitado en la configuración.
+   - Los mensajes en pantalla usan colores y un formato homogéneo.
 
 ---
 
 ## Cómo Empezar a Usarlo
 
-1. **Descarga o clona** este repositorio en tu equipo.
+1. **Descarga o clona** este repositorio.
 2. **Ejecuta** `Main.ps1` con PowerShell **como Administrador** (o deja que el script fuerce la elevación).
-   - Recuerda que si tu ExecutionPolicy bloquea scripts, puedes habilitar o pasar `-ExecutionPolicy Bypass` al lanzar PowerShell.
-3. **El script** te pedirá la acción a realizar y, de ser necesario, el **perfil** a aplicar (categoría del sistema de información y calificación de la información). Si usas parámetros (ver sección "Ejecución no interactiva (CLI)"), el flujo puede ser completamente no interactivo.
-4. **Observa** cómo se generan las carpetas "Logs" y "Backups". Se guardarán registros y copias de seguridad ahí.
-5. Revisa la **salida en pantalla** para ver la información de la ejecución.
+3. Selecciona la acción y el perfil a aplicar, o usa parámetros para ejecución no interactiva.
+4. Consulta las carpetas `Logs` y `Backups` para ver resultados y copias.
+5. Revisa la salida en pantalla para seguir la ejecución.
 
 ---
 
 ## Ejecución no interactiva (CLI)
 
-`Main.ps1` admite ejecución por parámetros, todos opcionales, útil para automatización y scripts:
+Parámetros disponibles en `Main.ps1`:
 
-- `-Action`: `Test`, `Set`, `Restore` o `RestoreLast` (esta última restaura automáticamente la copia más reciente disponible para el equipo).
-- `-ProfileName`: nombre exacto de la carpeta de perfil en `Profiles/` (p. ej., `Media_Estandar`, `Media_UsoOficial`). Si se especifica, se omite el menú de selección de perfil en `Test`/`Set`.
-- `-BackupName`: nombre exacto de la carpeta de backup dentro de `Backups/<MachineId>/`. Si se especifica, se omite el menú de selección en `Restore`.
-- `-ConfigFile`: ruta a un `config.json` alternativo. Por defecto `config.json`.
-- `-Quiet`: evita la pausa final de "Presiona Enter para salir...".
+- `-Action`: `Test`, `Set`, `Restore` o `RestoreLast`.
+- `-ProfileName`: nombre de la carpeta de perfil en `Profiles/`.
+- `-BackupName`: nombre exacto de la carpeta en `Backups/<MachineId>/`.
+- `-ConfigFile`: ruta alternativa a `config.json`.
+- `-Quiet`: evita la pausa final.
 
 ---
 
 ## Orden de ejecución de grupos y políticas
 
-El orden de ejecución de grupos y políticas se define por `Profiles/<Perfil>/profile.manifest.json`. El manifest se mantiene sincronizado automáticamente: conserva el orden existente, añade nuevas entradas al final en orden alfabético y retira las que ya no existan. Para cambiar el orden, edita ese JSON y reubica los elementos en `Groups` y `Policies` según convenga.
-
-Si no editas el manifest, los nuevos grupos y políticas se añadirán al final (entre nuevos, en orden alfabético).
-
----
-
-## Aviso sobre las políticas sin valor establecido en los grupos OP_ACC_4 y OP_ACC_5
-
-Al hacer pruebas con las políticas del tipo "Security", observamos un comportamiento inesperado: una vez se importa el archivo `secpol.cfg` (aunque el único cambio en el archivo sea el correspondiente al valor de la política ejecutándose), Windows le asigna un valor a todas las otras políticas que no tenían un valor configurado, tanto del grupo OP_ACC_4 como del OP_ACC_5.
-
-Esto, por una parte, hace que al ajustar una política se estén modificando otras de forma accidental, pero lo más preocupante es que causa conflictos con las copias de seguridad:
-
-- Si se está restaurando una copia de seguridad donde se está eliminando el valor de alguna política y después se restaura una política de seguridad, aquellas con el valor eliminado volverán a tener uno, haciendo inefectiva su restauración.
-- Si se está ajustando un perfil, aquellas políticas sin valor configurado que se ejecuten después de una de seguridad no tendrán una copia de seguridad correcta por contener el valor que le haya asignado Windows al importar `secpol.cfg`.
-
-No hay solución por el momento, por lo que si se ejecuta alguna de las políticas del tipo "Security" se debe tener en mente que no será posible, salvo que se anoten anteriormente las políticas sin valor configurado, restaurar el sistema a su estado anterior al completo.
+El orden lo define el archivo `Profiles/<Perfil>/profile.manifest.json`.  
+El manifest se sincroniza automáticamente: conserva el orden existente, añade nuevas entradas al final (orden alfabético entre nuevas) y elimina las que ya no existan.
 
 ---
 
 ## Cómo añadir nuevas políticas
 
-Si deseas añadir un nuevo perfil, grupo de políticas o políticas a grupos existentes, debes seguir los siguientes pasos:
-
-1. Para **crear un perfil**, comenzar creando una subcarpeta dentro de `Profiles\` (por ejemplo, `Profiles\Media_Estandar\`).
-2. Dentro de esa carpeta **añadir un grupo**, creando una subcarpeta dentro de `Profiles\<Perfil>` (por ejemplo, `Profiles\Media_Estandar\OP_ACC_4`).
-3. Crear un script para cada política concreta (por ejemplo, `Pwd_ExpireEnabled.ps1`) en la carpeta del grupo:
-
-   - En caso de ser de un tipo soportado (comprobar las funciones de `PolicyExecutor.ps1`), definir únicamente su objeto `$PolicyMeta` con el tipo correspondiente y la información asociada a dicho tipo.
-   - En caso de ser un tipo nuevo: o bien generalizar su ejecución mediante una nueva función de `PolicyExecutor.ps1` y su correspondiente llamada en `ProfileExecutor.ps1`, o bien especificar el tipo `Custom` dentro de `$PolicyMeta`, añadir la propiedad `IsValid = $null` e incluir las funciones `Initialize-Policy`, `Test-Policy`, `Backup-Policy`, `Set-Policy` y `Restore-Policy` dentro del archivo de la política. En este último caso, puede usarse de ejemplo `Pwd_ExpireEnabled.ps1` dentro de `OP_ACC_5` en `Media_Estandar`.
-
-   Notas importantes sobre orden y nombres:
-
-   - Asegura que el nombre del archivo coincide exactamente con `$PolicyMeta.Name`.
-   - Para establecer el orden de ejecución, edita `Profiles/<Perfil>/profile.manifest.json`. Si no lo haces, las nuevas políticas se incorporarán automáticamente al final del grupo (y entre las nuevas, en orden alfabético).
-
-Es **muy recomendable** implementar los nuevos archivos a partir de una copia de los existentes, para asegurar que se sigue la misma estructura y se implementan todas variables necesarias con sus nombres y propiedades correspondientes. En caso de hacerse, asegurar que todo el contenido se actualice de acuerdo a la nueva política, sin referencias a la original.
-
----
-
-## Trabajo en curso y pendiente
-
-Se están añadiendo los scripts para cubrir todas las políticas de las categorías "Media" y "Alta" y las calificaciones "Estándar" y "Uso Oficial".
+1. Crear carpeta de perfil en `Profiles/` si es necesario.
+2. Crear carpeta de grupo dentro del perfil.
+3. Añadir script `.ps1` de la política dentro del grupo:
+   - Si es un tipo soportado por `PolicyExecutor.ps1`, definir solo el objeto `$PolicyMeta`.
+   - Si es un tipo nuevo, usar tipo `Custom` en `$PolicyMeta` e implementar funciones `Initialize-Policy`, `Test-Policy`, `Backup-Policy`, `Set-Policy`, `Restore-Policy` y `Assert-Policy`.
+4. Asegurar que el nombre del archivo coincide con `$PolicyMeta.Name`.
+5. Añadir la política al manifest `profile.manifest.json` para definir su orden.

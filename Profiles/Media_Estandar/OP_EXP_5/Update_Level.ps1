@@ -70,3 +70,8 @@ try { Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force } catch { }
 function Restore-Policy {
   Show-Warning "[$($PolicyInfo.Name)] Esta política no se puede restaurar. No se realizará ninguna acción."
 }
+
+function Assert-Policy {
+  # Not supported
+  return $true
+}

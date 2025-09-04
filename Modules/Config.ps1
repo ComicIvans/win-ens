@@ -112,6 +112,7 @@ function Get-LocalConfig {
     TestOnlyEnabled            = $false
     SaveResultsAsCSV           = $false
     StopOnProfileError         = $true
+    MaxValidationIterations    = 5
     ScriptsEnabled             = [ordered]@{}
   }
 
@@ -189,6 +190,7 @@ function Show-Config {
     TestOnlyEnabled            = 'Si está activado, las políticas desactivadas en la configuración tampoco se comprobarán con la acción "Test"'
     SaveResultsAsCSV           = 'Si está activado, los resultados de comprobar un perfil se guardarán en un archivo CSV dentro del directorio "Logs"'
     StopOnProfileError         = 'Si está activado, la ejecución se detendrá ante cualquier error ocurrido durante la ejecución de un perfil, grupo o política.'
+    MaxValidationIterations    = 'Número de iteraciones máximas a realizar para validar la aplicación o restauración de todas las políticas de un perfil.'
   }
 
   # Print all general config keys except ScriptsEnabled

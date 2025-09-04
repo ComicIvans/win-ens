@@ -10,6 +10,7 @@ $ConfigTemplate = [PSCustomObject]@{
   TestOnlyEnabled            = $false
   SaveResultsAsCSV           = $false
   StopOnProfileError         = $true
+  MaxValidationIterations    = 5
   ScriptsEnabled             = [ordered]@{}
 }
 

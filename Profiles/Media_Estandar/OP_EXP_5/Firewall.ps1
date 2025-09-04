@@ -96,3 +96,8 @@ function Restore-Policy {
     Set-NetFirewallProfile -Profile $t.Name -Enabled $(if ($t.Value) { 'True' } else { 'False' }) -ErrorAction Stop
   }
 }
+
+function Assert-Policy {
+  # Not supported
+  return $true
+}
