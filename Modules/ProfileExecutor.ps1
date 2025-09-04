@@ -405,6 +405,14 @@ function Invoke-Group {
   foreach ($p in $Global:PolicyMetaStore[$GroupName].Keys) {
     try {
       $PolicyInfo = $GroupMeta.GroupInfo.Policies | Where-Object { $_.Name -eq $p }
+
+      if (($Action -eq "Set" -or $Action -eq "Assert") -and -not $GroupMeta.Backup.ContainsKey($PolicyInfo.Name)) {
+        $PolicyInfo.Status = 'Skipped'
+        Save-GlobalInfo
+        Show-Warning "[$GroupName] [$($PolicyInfo.Name)] No se ha encontrado una copia de respaldo para esta política, por lo que no se ajustará."
+        continue
+      }
+
       $PolicyInfo.Status = 'Running'
       Save-GlobalInfo
       Show-Info -Message "[$GroupName] [$($PolicyInfo.Name)] Ejecutando acción '$Action'..." -NoConsole
