@@ -108,12 +108,13 @@ function Get-LocalConfig {
   )
 
   $localConfig = [ordered]@{
-    EnforceMinimumPolicyValues = $false
-    TestOnlyEnabled            = $false
-    SaveResultsAsCSV           = $false
-    StopOnProfileError         = $true
-    MaxValidationIterations    = 5
-    ScriptsEnabled             = [ordered]@{}
+    EnforceMinimumPolicyValues       = $false
+    TestOnlyEnabled                  = $false
+    SaveResultsAsCSV                 = $false
+    StopOnProfileError               = $true
+    MaxValidationIterations          = 5
+    RemoveUnknownPrivilegeSetEntries = $false
+    ScriptsEnabled                   = [ordered]@{}
   }
 
   $profDirPath = (Resolve-Path -Path (Join-Path $PSScriptRoot "..\Profiles")).Path
@@ -186,11 +187,12 @@ function Show-Config {
 
   # Dictionary with descriptions for each general config key
   $configDescriptions = @{
-    EnforceMinimumPolicyValues = 'Si está activado, se fuerza el valor mínimo requerido por cada política, sobrescribiendo valores más seguros'
-    TestOnlyEnabled            = 'Si está activado, las políticas desactivadas en la configuración tampoco se comprobarán con la acción "Test"'
-    SaveResultsAsCSV           = 'Si está activado, los resultados de comprobar un perfil se guardarán en un archivo CSV dentro del directorio "Logs"'
-    StopOnProfileError         = 'Si está activado, la ejecución se detendrá ante cualquier error ocurrido durante la ejecución de un perfil, grupo o política.'
-    MaxValidationIterations    = 'Número de iteraciones máximas a realizar para validar la aplicación o restauración de todas las políticas de un perfil.'
+    EnforceMinimumPolicyValues       = 'Si está activado, se fuerza el valor mínimo requerido por cada política, sobrescribiendo valores más seguros'
+    TestOnlyEnabled                  = 'Si está activado, las políticas desactivadas en la configuración tampoco se comprobarán con la acción "Test"'
+    SaveResultsAsCSV                 = 'Si está activado, los resultados de comprobar un perfil se guardarán en un archivo CSV dentro del directorio "Logs"'
+    StopOnProfileError               = 'Si está activado, la ejecución se detendrá ante cualquier error ocurrido durante la ejecución de un perfil, grupo o política.'
+    MaxValidationIterations          = 'Número de iteraciones máximas a realizar para validar la aplicación o restauración de todas las políticas de un perfil.'
+    RemoveUnknownPrivilegeSetEntries = 'Si está activado, se eliminarán las entradas desconocidas en las políticas de seguridad con método de comparación PrivilegeSet.'
   }
 
   # Print all general config keys except ScriptsEnabled

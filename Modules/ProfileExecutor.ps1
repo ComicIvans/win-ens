@@ -294,7 +294,7 @@ function Invoke-Group {
             Save-GlobalInfo
             continue
           }
-          elseif ($Global:Info.Action -eq "Restore" -and -not $GroupMeta.Backup.ContainsKey($PolicyInfo.Name)) {
+          elseif ($Global:Info.Action -eq "Restore" -and -not $GroupMeta.Backup.Contains($PolicyInfo.Name)) {
             $PolicyInfo.Status = 'Skipped'
             Show-Info -Message "[$GroupName] [$($PolicyInfo.Name)] Política no encontrada en el archivo de respaldo. No se restaurará."
             Save-GlobalInfo
@@ -406,7 +406,7 @@ function Invoke-Group {
     try {
       $PolicyInfo = $GroupMeta.GroupInfo.Policies | Where-Object { $_.Name -eq $p }
 
-      if (($Action -eq "Set" -or $Action -eq "Assert") -and -not $GroupMeta.Backup.ContainsKey($PolicyInfo.Name)) {
+      if (($Action -eq "Set" -or $Action -eq "Assert") -and -not $GroupMeta.Backup.Contains($PolicyInfo.Name)) {
         $PolicyInfo.Status = 'Skipped'
         Save-GlobalInfo
         Show-Warning "[$GroupName] [$($PolicyInfo.Name)] No se ha encontrado una copia de respaldo para esta política, por lo que no se ajustará."

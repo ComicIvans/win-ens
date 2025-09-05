@@ -6,12 +6,13 @@
 # Template for Config
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 $ConfigTemplate = [PSCustomObject]@{
-  EnforceMinimumPolicyValues = $false
-  TestOnlyEnabled            = $false
-  SaveResultsAsCSV           = $false
-  StopOnProfileError         = $true
-  MaxValidationIterations    = 5
-  ScriptsEnabled             = [ordered]@{}
+  EnforceMinimumPolicyValues       = $false
+  TestOnlyEnabled                  = $false
+  SaveResultsAsCSV                 = $false
+  StopOnProfileError               = $true
+  MaxValidationIterations          = 5
+  RemoveUnknownPrivilegeSetEntries = $false
+  ScriptsEnabled                   = [ordered]@{}
 }
 
 # Template for CustomPolicyMeta

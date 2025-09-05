@@ -463,7 +463,9 @@ function Invoke-SecurityPolicy {
               return "*$sid"
             }
             catch {
-              Exit-WithError -Message "[$GroupName] [$($PolicyInfo.Name)] No se pudo convertir '$Identity', $context, a su SID: $($_.Exception.Message)"
+              if (-not $Global:Config.RemoveUnknownPrivilegeSetEntries) {
+                Exit-WithError -Message "[$GroupName] [$($PolicyInfo.Name)] No se pudo convertir '$Identity', $context, a su SID. Para poder ajustar la política, habilita 'RemoveUnknownPrivilegeSetEntries' en la configuración."
+              }
               return
             }
           }
@@ -484,14 +486,20 @@ function Invoke-SecurityPolicy {
             $tokens = foreach ($raw in $items) {
               $t = $raw.ToString().Trim()
               if (-not $t) { continue }
-              if ($t[0] -eq '*') { $t } else { ConvertTo-SidToken -Identity $t -context $contextForErrors }
+              # Allow already-SID tokens (start with '*') as-is; otherwise try to convert to SID
+              $sidToken = if ($t[0] -eq '*') { $t } else { ConvertTo-SidToken -Identity $t -context $contextForErrors }
+              # If conversion failed and removal of unknown entries is enabled, skip it
+              if ($null -eq $sidToken -and $Global:Config.RemoveUnknownPrivilegeSetEntries) { continue }
+              # If conversion failed and removal is not enabled, keep the original token
+              elseif ($null -eq $sidToken) { $sidToken = $t }
+              $sidToken
             }
 
             return , (@(@($tokens) | Sort-Object -Unique))
           }
 
-          $currentSet = ConvertTo-NormalizedPrivilegeSet -Source $PolicyMeta.CurrentValue -contextForErrors "presente en '$PolicyMeta.TempFilePath'"
-          $expectedSet = ConvertTo-NormalizedPrivilegeSet -Source $PolicyMeta.ExpectedValue -contextForErrors "presente en el archivo de configuración de seguridad del sistema"
+          $currentSet = ConvertTo-NormalizedPrivilegeSet -Source $PolicyMeta.CurrentValue -contextForErrors "presente en '$($PolicyMeta.Property)' dentro de '$($PolicyMeta.TempFilePath)'"
+          $expectedSet = ConvertTo-NormalizedPrivilegeSet -Source $PolicyMeta.ExpectedValue -contextForErrors "presente en los valores esperados para la política"
       
           $PolicyMeta.IsValid = -not (Compare-Object -ReferenceObject $currentSet -DifferenceObject $expectedSet)
 

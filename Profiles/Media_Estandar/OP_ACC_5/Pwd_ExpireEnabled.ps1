@@ -41,6 +41,7 @@ function Restore-Policy {
 }
 
 function Assert-Policy {
+  Initialize-Policy
   switch ($Global:Info.Action) {
     "Set" {
       return $PolicyMeta.IsValid
